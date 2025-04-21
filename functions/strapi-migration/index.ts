@@ -1,17 +1,9 @@
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import {
-  createClient,
-  SupabaseClient,
-} from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import {createClient, SupabaseClient,} from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { corsHeaders } from "../_shared/cors.ts";
-import { fetchAllStrapiAgreements } from "./services/strapiService.ts";
-import {
-  insertAgreementsBatch,
-  preloadLookupTable,
-} from "./services/supabaseService.ts";
-import { mapStrapiToSupabase } from "./services/mappingService.ts";
-import { StrapiAgreement, SupabaseAgreement } from "./interfaces.ts";
+import {corsHeaders} from "../_shared/cors.ts";
+import {fetchAllStrapiAgreements} from "./services/strapiService.ts";
+import {preloadLookupTable,} from "./services/supabaseService.ts";
+import {StrapiAgreement} from "./interfaces.ts";
 import "jsr:@std/dotenv/load";
 
 interface AppConfig {
@@ -20,15 +12,15 @@ interface AppConfig {
   strapiToken: string;
 }
 
-const setupConfiguration = (): AppConfig => {
+const setupConfiguration = (authHeader: string): AppConfig => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const strapiApiUrl = Deno.env.get("STRAPI_API_URL");
   const strapiToken = Deno.env.get("STRAPI_API_TOKEN");
 
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(
-      "Supabase URL or Service Role Key environment variable is missing.",
+      "Supabase URL or Service Anon Key environment variable is missing.",
     );
   }
   if (!strapiApiUrl || !strapiToken) {
@@ -37,7 +29,11 @@ const setupConfiguration = (): AppConfig => {
     );
   }
 
-  const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+  const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: { Authorization: authHeader! },
+    },
+  });
 
   console.log("Environment variables loaded and Supabase client created.");
 
@@ -50,7 +46,22 @@ const setupConfiguration = (): AppConfig => {
 
 Deno.serve(async (req) => {
   try {
-    const { supabaseClient, strapiToken, strapiApiUrl } = setupConfiguration();
+    if (req.method === "OPTIONS") {
+      return new Response("ok", { headers: corsHeaders });
+    }
+
+    const authHeader = req.headers.get("Authorization");
+
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "No autorizado" }),
+        { status: 401 },
+      );
+    }
+
+    const { supabaseClient, strapiToken, strapiApiUrl } = setupConfiguration(
+      authHeader,
+    );
 
     const { strapiAgreements, headquartersSet, rolesSet } =
       await connectToStrapi(strapiToken, strapiApiUrl);
@@ -71,8 +82,8 @@ Deno.serve(async (req) => {
       headers: { "Content-Type": "application/json" },
       status: 200,
     });
-  } catch (error) {
-    return new Response(String(error?.message ?? error), { status: 500 });
+  } catch (error: unknown) {
+    return new Response(String(error instanceof Error ? error.message : error), {status: 500});
   }
 });
 

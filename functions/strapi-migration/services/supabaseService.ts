@@ -53,31 +53,15 @@ export async function insertAgreementsBatch(
 
     console.log(`Inserting ${agreements.length} records into Supabase table 'agreements'...`);
 
-    // Consider chunking inserts if agreements.length is very large (e.g., > 1000)
-    // const chunkSize = 500;
-    // let totalInserted = 0;
-    // for (let i = 0; i < agreements.length; i += chunkSize) {
-    //    const chunk = agreements.slice(i, i + chunkSize);
-    //    const { error, count } = await supabaseClient...insert(chunk)...
-    //    // handle error, aggregate count
-    // }
-
     const { error, count } = await supabaseClient
         .from('agreements')
         .insert(agreements)
-        // .upsert(agreements, { onConflict: 'email, season_id' }) // Example: Use upsert if you need to update existing records
-        .select({ count: 'exact' }); // Request the count of affected rows
 
     if (error) {
         console.error('Supabase insert error:', error);
-        // Detailed logging of the first few failing records might be helpful
-        // console.error('First few records in failed batch:', JSON.stringify(agreements.slice(0, 5), null, 2));
-        return { count: null, error }; // Return the error object
+        return { count: null, error };
     }
 
     console.log(`Supabase insert successful. Response count: ${count ?? 'unknown'}.`);
-    // Note: 'count' might be null even on success in some scenarios,
-    // or reflect the total rows matched in an upsert, not just inserted.
-    // The actual number inserted might differ if using upsert or if RLS prevents some inserts.
     return { count, error: null };
 }
