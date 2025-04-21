@@ -19,3 +19,36 @@ CREATE TRIGGER handle_updated_at_workshops
     FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
 
 CREATE INDEX idx_workshops_headquarter_id ON workshops(headquarter_id);
+
+-- Enable Row Level Security
+ALTER TABLE workshops ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for authenticated users
+-- SELECT policy
+CREATE POLICY "Allow authenticated users to view workshops"
+ON workshops
+FOR SELECT
+TO authenticated
+USING (true);
+
+-- INSERT policy
+CREATE POLICY "Allow authenticated users to insert workshops"
+ON workshops
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+-- UPDATE policy
+CREATE POLICY "Allow authenticated users to update workshops"
+ON workshops
+FOR UPDATE
+TO authenticated
+USING (true)
+WITH CHECK (true);
+
+-- DELETE policy
+CREATE POLICY "Allow authenticated users to delete workshops"
+ON workshops
+FOR DELETE
+TO authenticated
+USING (true);

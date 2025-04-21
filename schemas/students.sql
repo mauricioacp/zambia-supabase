@@ -14,3 +14,36 @@ CREATE INDEX idx_students_user_id ON students(user_id);
 CREATE INDEX idx_students_agreement_id ON students(agreement_id);
 CREATE INDEX idx_students_headquarter_id ON students(headquarter_id);
 CREATE INDEX idx_students_season_id ON students(season_id);
+
+-- Enable Row Level Security
+ALTER TABLE students ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for authenticated users
+-- SELECT policy
+CREATE POLICY "Allow authenticated users to view students"
+ON students
+FOR SELECT
+TO authenticated
+USING (true);
+
+-- INSERT policy
+CREATE POLICY "Allow authenticated users to insert students"
+ON students
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+-- UPDATE policy
+CREATE POLICY "Allow authenticated users to update students"
+ON students
+FOR UPDATE
+TO authenticated
+USING (true)
+WITH CHECK (true);
+
+-- DELETE policy
+CREATE POLICY "Allow authenticated users to delete students"
+ON students
+FOR DELETE
+TO authenticated
+USING (true);

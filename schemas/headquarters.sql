@@ -15,3 +15,36 @@ CREATE TRIGGER handle_updated_at_headquarters
     FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
 
 CREATE INDEX idx_headquarters_country_id ON headquarters(country_id);
+
+-- Enable Row Level Security
+ALTER TABLE headquarters ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for authenticated users
+-- SELECT policy
+CREATE POLICY "Allow authenticated users to view headquarters"
+ON headquarters
+FOR SELECT
+TO authenticated
+USING (true);
+
+-- INSERT policy
+CREATE POLICY "Allow authenticated users to insert headquarters"
+ON headquarters
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+-- UPDATE policy
+CREATE POLICY "Allow authenticated users to update headquarters"
+ON headquarters
+FOR UPDATE
+TO authenticated
+USING (true)
+WITH CHECK (true);
+
+-- DELETE policy
+CREATE POLICY "Allow authenticated users to delete headquarters"
+ON headquarters
+FOR DELETE
+TO authenticated
+USING (true);

@@ -1,10 +1,14 @@
-import {createClient, SupabaseClient,} from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import {
+  createClient,
+  SupabaseClient,
+} from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import {corsHeaders} from "../_shared/cors.ts";
-import {fetchAllStrapiAgreements} from "./services/strapiService.ts";
-import {preloadLookupTable,} from "./services/supabaseService.ts";
-import {StrapiAgreement} from "./interfaces.ts";
+import { corsHeaders } from "../_shared/cors.ts";
+import { fetchAllStrapiAgreements } from "./services/strapiService.ts";
+import { preloadLookupTable } from "./services/supabaseService.ts";
+import { StrapiAgreement } from "./interfaces.ts";
 import "jsr:@std/dotenv/load";
+import { matchData } from "./services/mappingService.ts";
 
 interface AppConfig {
   supabaseClient: SupabaseClient;
@@ -70,43 +74,45 @@ Deno.serve(async (req) => {
       supabaseClient,
     );
 
-    await matchData(
+    const result = await matchData(
       strapiAgreements,
       headquartersSet,
       rolesSet,
       rolesMap,
       headquartersMap,
+      supabaseClient,
     );
 
-    return new Response(JSON.stringify({ "message": "Connected to Strapi." }), {
-      headers: { "Content-Type": "application/json" },
-      status: 200,
+    console.log('Estadísticas de la migración:', result.statistics);
+
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: result.success ? 200 : 500,
     });
+
+
+    /*  return new Response(csvData?.content, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="${csvData?.filename}"`,
+        },
+        status: 200,
+      });*/
+
+
+    // return new Response(JSON.stringify({ "message": "Connected to Strapi." }), {
+    //   headers: { "Content-Type": "application/json" },
+    //   status: 200,
+    // });
   } catch (error: unknown) {
-    return new Response(String(error instanceof Error ? error.message : error), {status: 500});
+    return new Response(
+      String(error instanceof Error ? error.message : error),
+      { status: 500 },
+    );
   }
 });
-
-const matchData = async (
-  strapiAgreements: StrapiAgreement[],
-  headquartersSet: Set<string>,
-  rolesSet: Set<string>,
-  rolesMap: Map<string, string>,
-  headquartersMap: Map<string, string>,
-) => {
-  const mergedHeadquarters = new Map<string, string | null>();
-  headquartersSet.forEach((a) => {
-    mergedHeadquarters.set(a, headquartersMap.get(a) || null);
-  });
-  console.log(mergedHeadquarters);
-
-  const mergedRoles = new Map<string, string | null>();
-  rolesSet.forEach((a) => {
-    mergedRoles.set(a, rolesMap.get(a) || null);
-  });
-
-  console.log(mergedRoles);
-};
 
 const connectToStrapi = async (strapiToken: string, strapiApiUrl: string) => {
   const strapiAgreements: StrapiAgreement[] = await fetchAllStrapiAgreements(

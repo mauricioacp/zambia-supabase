@@ -61,7 +61,6 @@ VALUES ('Barcelona', (SELECT id FROM countries WHERE code = 'ES')),
        ('Ibiza', (SELECT id FROM countries WHERE code = 'ES')),
        ('Mallorca', (SELECT id FROM countries WHERE code = 'ES')),
        ('Murcia', (SELECT id FROM countries WHERE code = 'ES')),
-       ('Valencia', (SELECT id FROM countries WHERE code = 'ES')),
        ('Valencia Nómada Upv', (SELECT id FROM countries WHERE code = 'ES')),
        ('Valencia Catarroja', (SELECT id FROM countries WHERE code = 'ES')),
        ('Tenerife', (SELECT id FROM countries WHERE code = 'ES')),
@@ -183,6 +182,26 @@ VALUES (uuid_generate_v4(), 'general_director', 'Director General',
         'Persona que acompaña a los alumnos en su proceso de aprendizaje', 'active'),
        (uuid_generate_v4(), 'facilitator', 'Facilitador', 'Facilitador de actividades y talleres', 'active'),
        (uuid_generate_v4(), 'student', 'Alumno', 'Estudiante registrado en el programa', 'active');
+
+
+-- ==========================================
+-- 3. Seasons - Seed Data
+-- ==========================================
+
+-- Add one season for each headquarter
+INSERT INTO seasons (id, name, headquarter_id, start_date, end_date, status)
+SELECT
+    uuid_generate_v4(),
+    headquarters.name || ' - Edición 2024-2025',
+    headquarters.id,
+    '2024-09-10',
+    '2025-05-15',
+    'active'
+FROM headquarters;
+
+
+
+
 -- Test Users: Only for development
 -- Uncomment this section for local development if needed
 /*
