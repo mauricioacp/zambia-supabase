@@ -36,32 +36,18 @@ export async function preloadLookupTable(
 }
 
 
-/**
- * @param supabaseClient
- * @param agreements
- * @returns Promise<{ count: number | null; error: Error | null }>
- */
-export async function insertAgreementsBatch(
-    supabaseClient: SupabaseClient,
-    agreements: SupabaseAgreement[]
-): Promise<{ count: number | null; error: unknown | null }> {
+export async function getSeasonIdByHeadQuarterId(headquarterId: string, supabaseClient: SupabaseClient) {
 
-    if (!agreements || agreements.length === 0) {
-        console.log("No records to insert into Supabase.");
-        return { count: 0, error: null };
-    }
-
-    console.log(`Inserting ${agreements.length} records into Supabase table 'agreements'...`);
-
-    const { error, count } = await supabaseClient
-        .from('agreements')
-        .insert(agreements)
+    const {data, error} = await supabaseClient
+        .from('seasons')
+        .select('id')
+        .eq('headquarter_id', headquarterId)
+        .single();
 
     if (error) {
-        console.error('Supabase insert error:', error);
-        return { count: null, error };
+        console.error(`Error getting season id by headquarter id:`, error);
+        throw error;
     }
 
-    console.log(`Supabase insert successful. Response count: ${count ?? 'unknown'}.`);
-    return { count, error: null };
+    return data?.id;
 }

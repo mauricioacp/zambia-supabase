@@ -42,6 +42,8 @@ When modifying the database schema, follow these steps:
    ```bash
    supabase start && supabase migration up
    ```
+   
+you can also use supabase db reset
 
 ## Deploying Schema Changes
 

@@ -7,15 +7,15 @@ export interface StrapiAgreement {
   updatedAt: string;
   headQuarters: string;
   role: string;
-  name: string | null;
+  name: string;
   lastName: string;
   country: string;
-  address: string | null;
+  address: string;
   volunteeringAgreement: boolean;
   ethicalDocumentAgreement: boolean;
   ageVerification: boolean;
   signDataPath: string;
-  mailingAgreementa: boolean;
+  mailingAgreements: boolean;
 }
 
 export interface StrapiResponse<T> {
@@ -31,24 +31,24 @@ export interface StrapiResponse<T> {
 }
 
 export interface SupabaseAgreement {
-  role_id: string | null;
+  role_id: string;
   user_id: string | null;
-  headquarter_id: string | null;
-  season_id: string | null;
-  status?: string; // 'active', 'inactive', 'prospect' (default: 'prospect')
+  headquarter_id: string;
+  season_id: string;
+  status: string; // 'active', 'inactive', 'prospect' (default: 'prospect')
   email: string;
-  document_number?: string | null;
-  phone?: string | null;
-  created_at?: string | null; // TIMESTAMPTZ (ISO 8601 string format)
-  updated_at?: string | null;
-  name?: string | null;
-  last_name?: string | null;
-  address?: string | null;
-  volunteering_agreement?: boolean | null;
-  ethical_document_agreement?: boolean | null;
-  mailing_agreement?: boolean | null;
-  age_verification?: boolean | null;
-  signature_data?: string | null;
+  document_number: string;
+  phone: string;
+  created_at: string; // TIMESTAMPTZ (ISO 8601 string format)
+  updated_at?: string;
+  name?: string;
+  last_name?: string;
+  address?: string;
+  volunteering_agreement?: boolean;
+  ethical_document_agreement?: boolean;
+  mailing_agreement?: boolean;
+  age_verification?: boolean;
+  signature_data?: string;
 }
 
 export interface SupabaseLookupItem {

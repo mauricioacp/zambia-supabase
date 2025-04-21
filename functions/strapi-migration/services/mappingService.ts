@@ -1,69 +1,181 @@
-import { StrapiAgreement, SupabaseAgreement } from '../interfaces.ts';
-import { parseBoolean, formatIsoDate } from '../utils/helpers.ts';
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import { StrapiAgreement, SupabaseAgreement } from "../interfaces.ts";
+import {
+  formatIsoDate,
+  isCreatedMoreThanOneYearAgo,
+} from "../utils/helpers.ts";
+import { getSeasonIdByHeadQuarterId } from "./supabaseService.ts";
 
-/**
- * @param strapiAgreement
- * @param rolesMap
- * @param headquartersMap
- * @param defaultSeasonId
- * @returns SupabaseAgreement | null
- */
-export function mapStrapiToSupabase(
-    strapiAgreement: StrapiAgreement,
-    rolesMap: Map<string, string>,
-    headquartersMap: Map<string, string>,
-    defaultSeasonId: string | null
-): SupabaseAgreement | null {
+export async function matchData(
+  strapiAgreements: StrapiAgreement[],
+  headquartersSet: Set<string>,
+  rolesSet: Set<string>,
+  rolesMap: Map<string, string>,
+  headquartersMap: Map<string, string>,
+  supabaseClient: SupabaseClient,
+) {
+  const STUDENT_ROLE_ID = rolesMap.get("alumno");
+  let agreementStatus = "prospect";
 
-    if (!strapiAgreement.email || !strapiAgreement.email.trim()) {
-        console.warn(`Skipping Strapi record ID ${JSON.stringify(strapiAgreement)}: Missing or empty email.`);
-        return null;
+  /**
+   * this transformation is added due to bad normalization in Strapi database.
+   */
+  const headquartersNormalization = new Map<string, string>([
+    ["konsejo de dirección", "konsejo akademíko"],
+    ["cdmx", "ciudad de méxico"],
+    ["valencia ruzafa/ribera alta", "valencia nómada upv"],
+    ["valencia", "valencia nómada upv"],
+    ["webinarseptiembre", "webinar septiembre"],
+    ["webinar-septiembre", "webinar septiembre"],
+    ["webinarfeb", "webinar marzo"],
+    ["webinar feb", "webinar marzo"],
+    ["webinar febrero", "webinar marzo"],
+  ]);
+
+  const rolesNormalization = new Map<string, string>([
+    ["equipo de comunicación", "director/a de comunicación local"],
+    ["otro", "asistente a la dirección"],
+    ["comunicación", "director/a de comunicación local"],
+    ["equipo comunicación", "director/a de comunicación local"],
+  ]);
+
+  const normalizeText = (text: string): string => {
+    return text?.trim().toLowerCase() ?? "";
+  };
+
+  const normalizeHeadquarters = (headquarters: string): string => {
+    const normalized = normalizeText(headquarters);
+    return headquartersNormalization.get(normalized) || normalized;
+  };
+
+  const normalizeRole = (role: string): string => {
+    const normalized = normalizeText(role);
+    return rolesNormalization.get(normalized) || normalized;
+  };
+
+  const mergedHeadquarters = new Map<string, string | null>();
+  headquartersSet.forEach((headquarters) => {
+    const normalizedHeadquarters = normalizeHeadquarters(headquarters);
+    mergedHeadquarters.set(
+      normalizeText(headquarters),
+      headquartersMap.get(normalizedHeadquarters) || null,
+    );
+  });
+
+  const mergedRoles = new Map<string, string | null>();
+  rolesSet.forEach((role) => {
+    const normalizedRole = normalizeRole(role);
+    mergedRoles.set(
+      normalizeText(role),
+      rolesMap.get(normalizedRole) || null,
+    );
+  });
+
+  console.log("Merged Headquarters Map Size:", mergedHeadquarters.size);
+  console.log("Merged Roles Map size:", mergedRoles.size);
+
+  const supabaseAgreements: SupabaseAgreement[] = [];
+
+  for (const strapiAgreement of strapiAgreements) {
+    const normalizedHeadquarters = normalizeText(strapiAgreement.headQuarters);
+    const normalizedRole = normalizeText(strapiAgreement.role);
+
+    if (!mergedHeadquarters.get(normalizedHeadquarters)) {
+      const mappedHeadquarters = headquartersMap.get(
+        normalizeHeadquarters(strapiAgreement.headQuarters),
+      );
+      if (!mappedHeadquarters) {
+        console.log(`${strapiAgreement.headQuarters} no existe`);
+      }
+    } else {
+      strapiAgreement.headQuarters =
+        mergedHeadquarters.get(normalizedHeadquarters) ?? "";
     }
-     const email = strapiAgreement.email.trim();
 
-    const headquarterName = strapiAgreement.headQuarters?.trim().toLowerCase();
-    let headquarterId: string | null = null;
-    if (headquarterName) {
-         headquarterId = headquartersMap.get(headquarterName) || null;
-         if (!headquarterId) {
-             console.warn(`Supabase Headquarter ID not found for Strapi name: '${strapiAgreement.headQuarters}' (Record ID: ${strapiAgreement.id}). Setting to NULL.`);
-         }
+    if (!mergedRoles.get(normalizedRole)) {
+      const mappedRole = rolesMap.get(normalizeRole(strapiAgreement.role));
+
+      if (!mappedRole) {
+        console.log(`${strapiAgreement.role} no existe`);
+      }
+    } else {
+      strapiAgreement.role = mergedRoles.get(normalizedRole)!;
     }
 
-    const roleName = strapiAgreement.role?.trim().toLowerCase();
-    let roleId: string | null = null;
-    if (roleName) {
-        roleId = rolesMap.get(roleName) || null;
-         if (!roleId) {
-             console.warn(`Supabase Role ID not found for Strapi name: '${strapiAgreement.role}' (Record ID: ${strapiAgreement.id}). Setting to NULL.`);
-         }
+    if (!strapiAgreement.headQuarters || !strapiAgreement.role) {
+      console.log(
+        `Headquarters: ${strapiAgreement.headQuarters} || Role: ${strapiAgreement.role}`,
+      );
     }
 
-    const userId: string | null = null;
+    if (strapiAgreement.role === STUDENT_ROLE_ID) {
+      agreementStatus = isCreatedMoreThanOneYearAgo(strapiAgreement.createdAt)
+        ? "graduated"
+        : "prospect";
+    }
 
-    // const supabaseRecord: SupabaseAgreement = {
-    //     email: email,
-    //     document_number: strapiAgreement.document_number || null,
-    //     phone: strapiAgreement.phone || null,
-    //     name: strapiAgreement.name || null,
-    //     last_name: strapiAgreement.last_name || null,
-    //     address: strapiAgreement.address || null,
-    //     status: 'prospect',
-    //     role_id: roleId,
-    //     user_id: userId,
-    //     headquarter_id: headquarterId,
-    //     season_id: defaultSeasonId,
-    //
-    //
-    //     created_at: formatIsoDate(strapiAgreement.created_at),
-    //     updated_at: formatIsoDate(strapiAgreement.updated_at),
-    //     volunteering_agreement: parseBoolean(strapiAgreement.volunteering_agreement),
-    //     ethical_document_agreement: parseBoolean(strapiAgreement.ethical_document_agreement),
-    //     mailing_agreement: parseBoolean(strapiAgreement.mailing_agreement),
-    //     age_verification: parseBoolean(strapiAgreement.age_verification),
-    //
-    //     signature_data: null
-    // };
+    const seasonId = await getSeasonIdByHeadQuarterId(strapiAgreement.headQuarters, supabaseClient);
 
-    return null;
+    supabaseAgreements.push({
+      address: strapiAgreement.address,
+      email: strapiAgreement.email,
+      document_number: strapiAgreement.documentNumber,
+      phone: strapiAgreement.phone,
+      created_at: formatIsoDate(strapiAgreement.createdAt),
+      updated_at: formatIsoDate(strapiAgreement.updatedAt),
+      name: strapiAgreement.name,
+      last_name: strapiAgreement.lastName,
+      volunteering_agreement: strapiAgreement.volunteeringAgreement,
+      ethical_document_agreement: strapiAgreement.ethicalDocumentAgreement,
+      mailing_agreement: strapiAgreement.mailingAgreements,
+      age_verification: strapiAgreement.ageVerification,
+      signature_data: strapiAgreement.signDataPath,
+      role_id: strapiAgreement.role,
+      headquarter_id: strapiAgreement.headQuarters,
+      status: agreementStatus,
+      user_id: null,
+      season_id:  seasonId
+    });
+  }
+
+  const strapiCount = strapiAgreements.length;
+
+  try {
+    const { data, error, count } = await supabaseClient
+      .from("agreements")
+      .insert(supabaseAgreements, {
+        count: "exact",
+        defaultToNull: true,
+      })
+
+    if (error) {
+      throw error;
+    }
+
+    return {
+      success: true,
+      message: "Datos insertados correctamente",
+      statistics: {
+        strapiCount,
+        supabaseInserted: count,
+        transformedCount: supabaseAgreements.length,
+        difference: strapiCount - (count ?? 0),
+      },
+
+      data: data,
+    };
+  } catch (error) {
+    console.error("Error en la inserción:", error);
+    return {
+      success: false,
+      message: "Error al insertar los datos",
+      statistics: {
+        strapiCount,
+        transformedCount: supabaseAgreements.length,
+        supabaseInserted: 0,
+        difference: strapiCount,
+      },
+      error: error instanceof Error ? error.message : JSON.stringify(error),
+    };
+  }
 }

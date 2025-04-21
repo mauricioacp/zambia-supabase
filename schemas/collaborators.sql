@@ -14,3 +14,36 @@ CREATE INDEX idx_collaborators_user_id ON collaborators(user_id);
 CREATE INDEX idx_collaborators_agreement_id ON collaborators(agreement_id);
 CREATE INDEX idx_collaborators_role_id ON collaborators(role_id);
 CREATE INDEX idx_collaborators_headquarter_id ON collaborators(headquarter_id);
+
+-- Enable Row Level Security
+ALTER TABLE collaborators ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for authenticated users
+-- SELECT policy
+CREATE POLICY "Allow authenticated users to view collaborators"
+ON collaborators
+FOR SELECT
+TO authenticated
+USING (true);
+
+-- INSERT policy
+CREATE POLICY "Allow authenticated users to insert collaborators"
+ON collaborators
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+-- UPDATE policy
+CREATE POLICY "Allow authenticated users to update collaborators"
+ON collaborators
+FOR UPDATE
+TO authenticated
+USING (true)
+WITH CHECK (true);
+
+-- DELETE policy
+CREATE POLICY "Allow authenticated users to delete collaborators"
+ON collaborators
+FOR DELETE
+TO authenticated
+USING (true);

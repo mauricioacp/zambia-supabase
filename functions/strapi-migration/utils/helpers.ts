@@ -1,54 +1,66 @@
-/**
- * @param value
- * @returns The parsed boolean value or null
- */
-export function parseBoolean(value: any): boolean | null {
-  if (value === undefined || value === null) return null;
-  
-  if (typeof value === 'boolean') return value;
-  
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === 'true' || normalized === 'yes' || normalized === '1') return true;
-    if (normalized === 'false' || normalized === 'no' || normalized === '0') return false;
-  }
-  
-  if (typeof value === 'number') {
-    return value !== 0;
-  }
-  
-  return null;
-}
+import {SupabaseAgreement} from "../interfaces.ts";
 
 /**
  * Formats a date string to ISO format for Supabase timestamp columns
  * @param dateStr
  * @returns ISO formatted date string or null
  */
-export function formatIsoDate(dateStr: string | undefined | null): string | null {
-  if (!dateStr) return null;
+export function formatIsoDate(dateStr: string): string{
   
   try {
     const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return null;
+    if (isNaN(date.getTime())){
+      console.warn(`Failed to parse date: ${dateStr}`);
+      return new Date().toISOString();
+    }
     return date.toISOString();
   } catch (error) {
     console.warn(`Failed to parse date: ${dateStr}`, error);
-    return null;
+    return new Date().toISOString();
   }
 }
 
-/**
- * Creates a map for quick lookup, with normalized keys (lowercase, trimmed)
- * @param sourceMap Original map to normalize
- * @returns New map with normalized keys
- */
-export function createNormalizedMap<T>(sourceMap: Map<string, T>): Map<string, T> {
-  const normalizedMap = new Map<string, T>();
-  for (const [key, value] of sourceMap.entries()) {
-    if (key) {
-      normalizedMap.set(key.trim().toLowerCase(), value);
-    }
+function parseRawDate(rawDate: string): Date {
+  const date = new Date(rawDate);
+  if (isNaN(date.getTime())){
+    console.warn(`Failed to parse date: ${rawDate}`);
+    return new Date();
   }
-  return normalizedMap;
+  return date;
 }
+
+export function isCreatedMoreThanOneYearAgo(rawDate: string): boolean {
+  const ONE_YEAR_IN_MS = 365 * 24 * 60 * 60 * 1000;
+  const date = parseRawDate(rawDate);
+  const oneYearAgo = new Date(Date.now() - ONE_YEAR_IN_MS);
+  return date <= oneYearAgo;
+}
+
+/*
+export function generateAndDownloadCsv(supabaseAgreements: SupabaseAgreement[]) {
+  if (!supabaseAgreements.length) {
+    console.warn('No agreements to export');
+    return;
+  }
+
+  const headers = Object.keys(supabaseAgreements[0]);
+
+  const csvRows = supabaseAgreements.map(agreement => {
+    return headers.map(header => {
+      const value = agreement[header as keyof SupabaseAgreement];
+      if (value === null || value === undefined) return '""';
+      return typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value;
+    }).join(',');
+  });
+
+  const csvContent = [
+    headers.join(','),
+    ...csvRows
+  ].join('\n');
+
+  return {
+    content: csvContent,
+    filename: `agreements_export_${new Date().toISOString()}.csv`
+  };
+}
+*/
