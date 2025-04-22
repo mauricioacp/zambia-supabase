@@ -1,6 +1,5 @@
 import { assertEquals } from "@std/assert";
 
-// Mock environment variables
 Deno.env.set("SUPABASE_URL", "https://example.supabase.co");
 Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "mock-service-role-key");
 Deno.env.set("ADMIN_SECRET", "mock-admin-secret");
@@ -45,8 +44,11 @@ const mockSupabaseClient = {
 };
 
 // Mock the supabase module
-import * as supabaseModule from "supabase";
-supabaseModule.createClient = () => mockSupabaseClient;
+const _createClient = await import("supabase").then(m => m.createClient);
+Object.defineProperty(await import("supabase"), "createClient", {
+  value: () => mockSupabaseClient,
+  writable: true
+});
 
 // Import the corsHeaders after mocking
 import { corsHeaders } from "./middleware/cors.ts";
