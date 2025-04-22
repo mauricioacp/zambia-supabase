@@ -59,7 +59,8 @@ schema_paths = [
   "./schemas/collaborators.sql",
   "./schemas/workshops.sql",
   "./schemas/events.sql",
-  "./schemas/processes.sql"
+  "./schemas/processes.sql",
+  "./schemas/strapi_migrations.sql"
 ]
 
 [db.seed]
@@ -289,6 +290,7 @@ enabled = false
 # domain = "example.clerk.accounts.dev"
 
 [edge_runtime]
+deno_version=2
 enabled = true
 # Configure one of the supported request policies: `oneshot`, `per_worker`.
 # Use `oneshot` for hot reload, or `per_worker` for load testing.
@@ -322,9 +324,5 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 enabled = true
 verify_jwt = true
 import_map = "./functions/strapi-migration/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 entrypoint = "./functions/strapi-migration/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/strapi-migration/*.html" ]

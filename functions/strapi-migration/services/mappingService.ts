@@ -1,10 +1,9 @@
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
-import { StrapiAgreement, SupabaseAgreement } from "../interfaces.ts";
-import {
-  formatIsoDate,
-  isCreatedMoreThanOneYearAgo,
-} from "../utils/helpers.ts";
-import { getSeasonIdByHeadQuarterId } from "./supabaseService.ts";
+import {SupabaseClient} from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import {StrapiAgreement, SupabaseAgreement} from "../interfaces.ts";
+import {formatIsoDate, isCreatedMoreThanOneYearAgo,} from "../utils/helpers.ts";
+import {getSeasonIdByHeadQuarterId} from "./supabaseService.ts";
+import {normalizeHeadquarters, normalizeRole, normalizeText} from "../utils/dataNormalization.ts";
+import {checkExistingAgreementsInBatches} from "./agreementChecks.ts";
 
 export async function matchData(
   strapiAgreements: StrapiAgreement[],
@@ -16,42 +15,6 @@ export async function matchData(
 ) {
   const STUDENT_ROLE_ID = rolesMap.get("alumno");
   let agreementStatus = "prospect";
-
-  /**
-   * this transformation is added due to bad normalization in Strapi database.
-   */
-  const headquartersNormalization = new Map<string, string>([
-    ["konsejo de dirección", "konsejo akademíko"],
-    ["cdmx", "ciudad de méxico"],
-    ["valencia ruzafa/ribera alta", "valencia nómada upv"],
-    ["valencia", "valencia nómada upv"],
-    ["webinarseptiembre", "webinar septiembre"],
-    ["webinar-septiembre", "webinar septiembre"],
-    ["webinarfeb", "webinar marzo"],
-    ["webinar feb", "webinar marzo"],
-    ["webinar febrero", "webinar marzo"],
-  ]);
-
-  const rolesNormalization = new Map<string, string>([
-    ["equipo de comunicación", "director/a de comunicación local"],
-    ["otro", "asistente a la dirección"],
-    ["comunicación", "director/a de comunicación local"],
-    ["equipo comunicación", "director/a de comunicación local"],
-  ]);
-
-  const normalizeText = (text: string): string => {
-    return text?.trim().toLowerCase() ?? "";
-  };
-
-  const normalizeHeadquarters = (headquarters: string): string => {
-    const normalized = normalizeText(headquarters);
-    return headquartersNormalization.get(normalized) || normalized;
-  };
-
-  const normalizeRole = (role: string): string => {
-    const normalized = normalizeText(role);
-    return rolesNormalization.get(normalized) || normalized;
-  };
 
   const mergedHeadquarters = new Map<string, string | null>();
   headquartersSet.forEach((headquarters) => {
@@ -86,6 +49,7 @@ export async function matchData(
       );
       if (!mappedHeadquarters) {
         console.log(`${strapiAgreement.headQuarters} no existe`);
+        strapiAgreement.headQuarters = null!;
       }
     } else {
       strapiAgreement.headQuarters =
@@ -97,6 +61,7 @@ export async function matchData(
 
       if (!mappedRole) {
         console.log(`${strapiAgreement.role} no existe`);
+        strapiAgreement.role = null!;
       }
     } else {
       strapiAgreement.role = mergedRoles.get(normalizedRole)!;
@@ -127,7 +92,7 @@ export async function matchData(
       last_name: strapiAgreement.lastName,
       volunteering_agreement: strapiAgreement.volunteeringAgreement,
       ethical_document_agreement: strapiAgreement.ethicalDocumentAgreement,
-      mailing_agreement: strapiAgreement.mailingAgreements,
+      mailing_agreement: strapiAgreement.mailingAgreement,
       age_verification: strapiAgreement.ageVerification,
       signature_data: strapiAgreement.signDataPath,
       role_id: strapiAgreement.role,
@@ -139,11 +104,42 @@ export async function matchData(
   }
 
   const strapiCount = strapiAgreements.length;
+  let existingAgreements: {
+    email: string
+    document_number: string
+  }[]= [];
+
+  if (supabaseAgreements.length > 0) {
+    const emails = supabaseAgreements.map(agreement => agreement.email);
+    const documentNumbers = supabaseAgreements.map(agreement => agreement.document_number);
+
+    existingAgreements = await checkExistingAgreementsInBatches(
+        supabaseClient,
+        emails,
+        documentNumbers,
+        50
+    );
+  }
+
+  const existingEmails = new Set(existingAgreements.map(a => a.email.toLowerCase()));
+  const existingDocNumbers = new Set(existingAgreements.map(a => a.document_number.toLowerCase()));
+
+  const filteredAgreements = supabaseAgreements.filter(agreement => {
+    const emailExists = existingEmails.has(agreement.email.toLowerCase());
+    const docNumberExists = existingDocNumbers.has(agreement.document_number.toLowerCase());
+    return !emailExists && !docNumberExists;
+  });
+
+
+  const excludedCount = supabaseAgreements.length - filteredAgreements.length;
+
+  console.log(`Found ${existingAgreements?.length || 0} existing agreements with matching email or document number`);
+  console.log(`Excluded ${excludedCount} agreements from insertion`);
 
   try {
     const { data, error, count } = await supabaseClient
       .from("agreements")
-      .insert(supabaseAgreements, {
+      .insert(filteredAgreements, {
         count: "exact",
         defaultToNull: true,
       })
@@ -159,9 +155,10 @@ export async function matchData(
         strapiCount,
         supabaseInserted: count,
         transformedCount: supabaseAgreements.length,
+        excludedCount,
+        excludedReason: "Agreements with the same email or document number already exist in the database",
         difference: strapiCount - (count ?? 0),
       },
-
       data: data,
     };
   } catch (error) {
@@ -173,6 +170,8 @@ export async function matchData(
         strapiCount,
         transformedCount: supabaseAgreements.length,
         supabaseInserted: 0,
+        excludedCount,
+        excludedReason: "Agreements with the same email or document number already exist in the database",
         difference: strapiCount,
       },
       error: error instanceof Error ? error.message : JSON.stringify(error),
