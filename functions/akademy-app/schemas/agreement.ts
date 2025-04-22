@@ -1,9 +1,8 @@
 import { z } from "zod";
 
-// Agreement schema for validation
 export const AgreementSchema = z.object({
   id: z.string().uuid().optional(),
-  role_id: z.string().uuid(),
+  roles: z.array(z.string().uuid()).optional(),
   headquarter_id: z.string().uuid(),
   season_id: z.string().uuid().optional(),
   status: z.enum(["active", "graduated", "inactive", "prospect"]).default("prospect"),
