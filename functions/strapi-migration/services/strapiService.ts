@@ -4,12 +4,14 @@ import { StrapiAgreement } from '../interfaces.ts';
  * @param apiUrl
  * @param apiToken
  * @param endpoint
+ * @param lastMigratedAt
  * @returns Promise<StrapiAgreement[]>
  */
 export async function fetchAllStrapiAgreements(
     apiUrl: string,
     apiToken: string,
-    endpoint: string = '/api/acuerdo-akademias'
+    endpoint: string = '/api/acuerdo-akademias',
+    lastMigratedAt: string | null
 ): Promise<StrapiAgreement[]> {
     const allAgreements: StrapiAgreement[] = [];
     let page = 1;
@@ -17,8 +19,12 @@ export async function fetchAllStrapiAgreements(
     let hasMorePages = true;
 
     while (hasMorePages) {
-
-        const url = `${apiUrl}${endpoint}?pagination[page]=${page}&pagination[pageSize]=${pageSize}&populate=*`;
+        let url = `${apiUrl}${endpoint}?pagination[page]=${page}&pagination[pageSize]=${pageSize}&populate=*`;
+        if (lastMigratedAt) {
+            url += `&filters[$or][0][createdAt][$gt]=${encodeURIComponent(lastMigratedAt)}`;
+            url += `&filters[$or][1][updatedAt][$gt]=${encodeURIComponent(lastMigratedAt)}`;
+            console.log(`Filtering records created or updated after: ${lastMigratedAt}`);
+        }
 
         try {
             const response = await fetch(url, {

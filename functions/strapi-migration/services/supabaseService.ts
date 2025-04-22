@@ -1,5 +1,5 @@
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
-import { SupabaseAgreement, SupabaseLookupItem } from '../interfaces.ts';
+import { SupabaseLookupItem } from '../interfaces.ts';
 
 /**
  * @param supabaseClient
@@ -30,8 +30,6 @@ export async function preloadLookupTable(
              console.warn(`Item in ${tableName} table with ID ${item.id} has a null or missing '${nameColumn}'. Skipping.`);
         }
     });
-
-    console.log(`Finished pre-loading ${tableName}. ${map.size} items mapped.`);
     return map;
 }
 

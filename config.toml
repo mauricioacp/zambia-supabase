@@ -59,7 +59,8 @@ schema_paths = [
   "./schemas/collaborators.sql",
   "./schemas/workshops.sql",
   "./schemas/events.sql",
-  "./schemas/processes.sql"
+  "./schemas/processes.sql",
+  "./schemas/strapi_migrations.sql"
 ]
 
 [db.seed]

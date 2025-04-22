@@ -1,5 +1,3 @@
-import {SupabaseAgreement} from "../interfaces.ts";
-
 /**
  * Formats a date string to ISO format for Supabase timestamp columns
  * @param dateStr

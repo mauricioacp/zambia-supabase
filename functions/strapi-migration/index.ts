@@ -9,6 +9,10 @@ import { preloadLookupTable } from "./services/supabaseService.ts";
 import { StrapiAgreement } from "./interfaces.ts";
 import "jsr:@std/dotenv/load";
 import { matchData } from "./services/mappingService.ts";
+import { 
+  getLastSuccessfulMigrationTimestamp, 
+  recordMigration 
+} from "./services/migrationService.ts";
 
 interface AppConfig {
   supabaseClient: SupabaseClient;
@@ -68,7 +72,7 @@ Deno.serve(async (req) => {
     );
 
     const { strapiAgreements, headquartersSet, rolesSet } =
-      await connectToStrapi(strapiToken, strapiApiUrl);
+      await connectToStrapi(strapiToken, strapiApiUrl, supabaseClient);
 
     const { rolesMap, headquartersMap } = await preloadSupabaseTableRecords(
       supabaseClient,
@@ -85,6 +89,31 @@ Deno.serve(async (req) => {
 
     console.log('Estadísticas de la migración:', result.statistics);
 
+    if (result.success && strapiAgreements.length > 0) {
+      const timestamps = strapiAgreements.map(a => new Date(a.updatedAt || a.createdAt).toISOString());
+      const mostRecentTimestamp = timestamps.sort().pop();
+
+      if (mostRecentTimestamp) {
+        const migrationRecord = {
+          last_migrated_at: mostRecentTimestamp,
+          status: 'success' as const,
+          records_processed: result.statistics.supabaseInserted || 0
+        };
+
+        const recordResult = await recordMigration(supabaseClient, migrationRecord);
+        console.log('Migration record saved:', recordResult ? 'Success' : 'Failed');
+      }
+    } else if (!result.success) {
+      const migrationRecord = {
+        last_migrated_at: new Date().toISOString(),
+        status: 'failed' as const,
+        records_processed: 0,
+        error_message: result.error || 'Unknown error'
+      };
+
+      await recordMigration(supabaseClient, migrationRecord);
+      console.log('Failed migration recorded');
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -101,11 +130,6 @@ Deno.serve(async (req) => {
         status: 200,
       });*/
 
-
-    // return new Response(JSON.stringify({ "message": "Connected to Strapi." }), {
-    //   headers: { "Content-Type": "application/json" },
-    //   status: 200,
-    // });
   } catch (error: unknown) {
     return new Response(
       String(error instanceof Error ? error.message : error),
@@ -114,10 +138,16 @@ Deno.serve(async (req) => {
   }
 });
 
-const connectToStrapi = async (strapiToken: string, strapiApiUrl: string) => {
+const connectToStrapi = async (strapiToken: string, strapiApiUrl: string, supabaseClient: SupabaseClient) => {
+  const lastMigratedAt = await getLastSuccessfulMigrationTimestamp(supabaseClient);
+  console.log(`Last successful migration timestamp: ${lastMigratedAt || 'None (fetching all records)'}`);
+
+
   const strapiAgreements: StrapiAgreement[] = await fetchAllStrapiAgreements(
     strapiApiUrl,
     strapiToken,
+    '/api/acuerdo-akademias',
+    lastMigratedAt
   );
 
   const rolesSet = new Set<string>();

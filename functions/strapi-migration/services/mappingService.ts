@@ -1,11 +1,9 @@
-import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
-import { StrapiAgreement, SupabaseAgreement } from "../interfaces.ts";
-import {
-  formatIsoDate,
-  isCreatedMoreThanOneYearAgo,
-} from "../utils/helpers.ts";
-import { getSeasonIdByHeadQuarterId } from "./supabaseService.ts";
+import {SupabaseClient} from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import {StrapiAgreement, SupabaseAgreement} from "../interfaces.ts";
+import {formatIsoDate, isCreatedMoreThanOneYearAgo,} from "../utils/helpers.ts";
+import {getSeasonIdByHeadQuarterId} from "./supabaseService.ts";
 import {normalizeHeadquarters, normalizeRole, normalizeText} from "../utils/dataNormalization.ts";
+import {checkExistingAgreementsInBatches} from "./agreementChecks.ts";
 
 export async function matchData(
   strapiAgreements: StrapiAgreement[],
@@ -106,11 +104,42 @@ export async function matchData(
   }
 
   const strapiCount = strapiAgreements.length;
+  let existingAgreements: {
+    email: string
+    document_number: string
+  }[]= [];
+
+  if (supabaseAgreements.length > 0) {
+    const emails = supabaseAgreements.map(agreement => agreement.email);
+    const documentNumbers = supabaseAgreements.map(agreement => agreement.document_number);
+
+    existingAgreements = await checkExistingAgreementsInBatches(
+        supabaseClient,
+        emails,
+        documentNumbers,
+        50
+    );
+  }
+
+  const existingEmails = new Set(existingAgreements.map(a => a.email.toLowerCase()));
+  const existingDocNumbers = new Set(existingAgreements.map(a => a.document_number.toLowerCase()));
+
+  const filteredAgreements = supabaseAgreements.filter(agreement => {
+    const emailExists = existingEmails.has(agreement.email.toLowerCase());
+    const docNumberExists = existingDocNumbers.has(agreement.document_number.toLowerCase());
+    return !emailExists && !docNumberExists;
+  });
+
+
+  const excludedCount = supabaseAgreements.length - filteredAgreements.length;
+
+  console.log(`Found ${existingAgreements?.length || 0} existing agreements with matching email or document number`);
+  console.log(`Excluded ${excludedCount} agreements from insertion`);
 
   try {
     const { data, error, count } = await supabaseClient
       .from("agreements")
-      .insert(supabaseAgreements, {
+      .insert(filteredAgreements, {
         count: "exact",
         defaultToNull: true,
       })
@@ -126,9 +155,10 @@ export async function matchData(
         strapiCount,
         supabaseInserted: count,
         transformedCount: supabaseAgreements.length,
+        excludedCount,
+        excludedReason: "Agreements with the same email or document number already exist in the database",
         difference: strapiCount - (count ?? 0),
       },
-
       data: data,
     };
   } catch (error) {
@@ -140,6 +170,8 @@ export async function matchData(
         strapiCount,
         transformedCount: supabaseAgreements.length,
         supabaseInserted: 0,
+        excludedCount,
+        excludedReason: "Agreements with the same email or document number already exist in the database",
         difference: strapiCount,
       },
       error: error instanceof Error ? error.message : JSON.stringify(error),
