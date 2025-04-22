@@ -15,7 +15,7 @@ export interface StrapiAgreement {
   ethicalDocumentAgreement: boolean;
   ageVerification: boolean;
   signDataPath: string;
-  mailingAgreements: boolean;
+  mailingAgreement: boolean;
 }
 
 export interface StrapiResponse<T> {
