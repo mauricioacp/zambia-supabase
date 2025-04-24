@@ -1,3 +1,4 @@
 /functions/strapi-migration/.env
+/functions/.env
 /scripts/.env
 /scripts/credentials.json
