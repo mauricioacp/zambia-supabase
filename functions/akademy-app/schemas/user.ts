@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// User creation schema for validation
 export const UserCreationSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
@@ -9,7 +8,6 @@ export const UserCreationSchema = z.object({
   headquarter_id: z.string().uuid(),
 });
 
-// Super admin creation schema for validation
 export const SuperAdminCreationSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),

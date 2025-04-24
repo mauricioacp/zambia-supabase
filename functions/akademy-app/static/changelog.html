@@ -7,48 +7,47 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        /* Estilos personalizados para aproximar el look & feel */
         body {
-            background-color: #022ac1; /* Fondo oscuro similar */
-            color: #e0e0e0; /* Texto principal claro */
-            font-family: sans-serif; /* Fuente por defecto */
+            background-color: #022ac1;
+            color: #e0e0e0;
+            font-family: sans-serif;
         }
-        /* Colores aproximados */
+
         .border-grid {
-            border-color: #2a2a2a; /* Borde más oscuro */
+            border-color: #2a2a2a;
         }
         .bg-grid-color {
-            background-color: #2a2a2a; /* Color para elementos de la 'grid' */
+            background-color: #2a2a2a;
         }
         .text-primary-text {
             color: #e0e0e0;
         }
         .text-secondary-text {
-            color: #a0a0a0; /* Texto secundario más tenue */
+            color: #a0a0a0;
         }
         .text-brand-dark {
-            color: #17E9D1; /* Color de marca similar */
+            color: #17E9D1;
         }
         .hover\:text-brand-accent:hover {
-            color: #4ff9e1; /* Acento de marca en hover */
+            color: #4ff9e1;
         }
         .bg-secondary-badge {
-            background-color: rgba(160, 160, 160, 0.2); /* Fondo de badge similar */
+            background-color: rgba(160, 160, 160, 0.2);
         }
-        /* Estilos para el contenido del artículo (simulando .prose) */
+
         .changelog-content h1, .changelog-content h2 {
-            color: #f0f0f0; /* Encabezados más brillantes */
+            color: #f0f0f0;
             margin-bottom: 0.5rem;
         }
         .changelog-content h1 {
-            font-size: 1.25rem; /* 20px */
-            line-height: 1.75rem; /* 28px */
+            font-size: 1.25rem;
+            line-height: 1.75rem;
             font-weight: 500;
-            letter-spacing: -0.025em; /* tracking-tight */
+            letter-spacing: -0.025em;
         }
         .changelog-content h2 {
-            font-size: 1.125rem; /* 18px */
-            line-height: 1.75rem; /* 28px */
+            font-size: 1.125rem;
+            line-height: 1.75rem;
             font-weight: 400;
             margin-top: 1.5rem;
         }
@@ -61,7 +60,7 @@
         }
         .changelog-content li {
             margin-bottom: 0.5rem;
-            line-height: 1.5; /* leading-relaxed */
+            line-height: 1.5;
         }
         .changelog-content a {
             color: #17E9D1;
@@ -72,49 +71,43 @@
         }
         .changelog-content img {
             margin-bottom: 2rem;
-            border-radius: 0.5rem; /* rounded-lg */
+            border-radius: 0.5rem;
         }
         #starfield-canvas {
-            position: fixed; /* Fijo para que se quede detrás */
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: -1; /* Detrás de todo el contenido */
-            display: block; /* Asegura que ocupe espacio */
+            z-index: -1;
+            display: block;
         }
 
-        /* Estilos base y transición para hover en banners y versión */
         article.changelog-content img,
         .sticky .bg-secondary-badge,
         header .bg-secondary-badge {
             transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
-            /* Asegura que tengan algo de borde redondeado si no lo tienen ya */
-            border-radius: 0.375rem; /* Similar a rounded-md de Tailwind */
+            border-radius: 0.375rem;
         }
 
-        /* Efecto hover para banners */
         article.changelog-content img:hover {
-            transform: translateY(-5px) scale(1.01); /* Levanta y agranda ligeramente */
-            box-shadow: 0 10px 30px rgba(23, 233, 209, 0.25); /* Sombra con color de marca */
+            transform: translateY(-5px) scale(1.01);
+            box-shadow: 0 10px 30px rgba(23, 233, 209, 0.25);
         }
 
-        /* Efecto hover para badges de versión (Desktop y Mobile) */
         .sticky .bg-secondary-badge:hover,
         header .bg-secondary-badge:hover {
-            transform: translateY(-3px); /* Levanta ligeramente */
-            box-shadow: 0 5px 15px rgba(23, 233, 209, 0.3); /* Sombra más sutil con color de marca */
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(23, 233, 209, 0.3);
         }
 
-        /* --- Tus otros estilos personalizados --- */
-        /* ... (resto de tus estilos) ... */
         .corner-box::before,
         .corner-box::after {
             content: '';
             position: absolute;
-            width: 0.5rem; /* 8px */
-            height: 0.5rem; /* 8px */
-            background-color: #2a2a2a; /* bg-grid-color */
+            width: 0.5rem;
+            height: 0.5rem;
+            background-color: #2a2a2a;
             transform: rotate(-45deg);
             z-index: 10;
             display: none;
@@ -267,7 +260,6 @@
     </div>
 </div>
 <script>
-    // Espera a que el DOM esté listo (opcional pero buena práctica)
     document.addEventListener('DOMContentLoaded', () => {
         const canvas = document.getElementById('starfield-canvas');
         if (!canvas) {
@@ -275,67 +267,52 @@
             return;
         }
 
-        // Escena
         const scene = new THREE.Scene();
-
-        // Cámara
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 1; // Posición inicial ajustada para ver las estrellas
+        camera.position.z = 1;
 
-        // Renderer
         const renderer = new THREE.WebGLRenderer({
             canvas: canvas,
-            alpha: true // Permite fondo transparente si es necesario, aunque el body ya tiene bg
+            alpha: true
         });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimiza para pantallas de alta densidad
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-        // Geometría de las estrellas
         const starGeometry = new THREE.BufferGeometry();
-        const starCount = 10000; // Número de estrellas
-        const positions = new Float32Array(starCount * 3); // x, y, z para cada estrella
+        const starCount = 10000;
+        const positions = new Float32Array(starCount * 3);
 
         for (let i = 0; i < starCount * 3; i++) {
-            // Posiciones aleatorias en un cubo grande
-            positions[i] = (Math.random() - 0.5) * 100; // Ajusta el '100' para cambiar la dispersión
-        }
 
+            positions[i] = (Math.random() - 0.5) * 100;
+        }
         starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-        // Material de las estrellas
         const starMaterial = new THREE.PointsMaterial({
-            color: 0xaaaaaa, // Color grisáceo de las estrellas
-            size: 0.05,      // Tamaño de las estrellas
-            sizeAttenuation: true // Las estrellas lejanas parecen más pequeñas
+            color: 0xaaaaaa,
+            size: 0.05,
+            sizeAttenuation: true
         });
 
-        // Objeto de Puntos (las estrellas)
         const stars = new THREE.Points(starGeometry, starMaterial);
         scene.add(stars);
 
-        // Manejar redimensionamiento de ventana
         window.addEventListener('resize', () => {
-            // Actualizar dimensiones de la cámara
+
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
-
-            // Actualizar dimensiones del renderer
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         });
 
-        // Bucle de animación
         const animate = () => {
             requestAnimationFrame(animate);
 
-            // Rotación sutil del campo de estrellas (opcional)
             stars.rotation.x += 0.0001;
             stars.rotation.y += 0.0001;
-
             renderer.render(scene, camera);
         };
-
-        animate(); // Inicia la animación
+        animate();
     });
 </script>
 </body>

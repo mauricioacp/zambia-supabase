@@ -2,12 +2,10 @@ import { corsHeaders } from "../middleware/cors.ts";
 import { supabaseAdmin } from "../services/supabase.ts";
 import { SuperAdminCreationSchema } from "../schemas/user.ts";
 
-// Handle super admin creation
 export async function createSuperAdmin(req: Request) {
   const body = await req.json();
   const validatedData = SuperAdminCreationSchema.parse(body);
 
-  // Create super admin user with Supabase auth
   const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
     email: validatedData.email,
     password: validatedData.password,
@@ -22,7 +20,6 @@ export async function createSuperAdmin(req: Request) {
 
   if (userError) throw userError;
 
-  // Update agreement with user_id
   const { error: agreementError } = await supabaseAdmin
     .from("agreements")
     .update({ user_id: userData.user.id })

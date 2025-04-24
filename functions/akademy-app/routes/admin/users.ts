@@ -1,7 +1,6 @@
 import { corsHeaders } from "../../middleware/cors.ts";
 import { supabaseAdmin } from "../../services/supabase.ts";
 
-// Handle GET request for users
 export async function getUsers() {
   const { data: { users }, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
 

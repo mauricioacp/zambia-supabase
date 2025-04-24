@@ -1,6 +1,5 @@
 import { corsHeaders } from "../middleware/cors.ts";
 
-// Helper function to handle errors
 export function handleError(error: unknown, status = 500) {
   console.error("Error:", error);
   const message = error instanceof Error ? error.message : "Unknown error occurred";

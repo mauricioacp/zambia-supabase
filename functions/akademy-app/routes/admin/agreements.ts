@@ -84,7 +84,6 @@ export async function updateAgreement(req: Request) {
   const roles = validatedData.roles || [];
   delete validatedData.roles;
 
-  // Update the agreement
   const { data: agreement, error: agreementError } = await supabaseAdmin
     .from("agreements")
     .update(validatedData)
@@ -94,9 +93,8 @@ export async function updateAgreement(req: Request) {
 
   if (agreementError) throw agreementError;
 
-  // If roles are provided, update the agreement_roles table
   if (roles.length > 0) {
-    // First, delete existing role associations
+
     const { error: deleteError } = await supabaseAdmin
       .from("agreement_roles")
       .delete()
@@ -104,7 +102,6 @@ export async function updateAgreement(req: Request) {
 
     if (deleteError) throw deleteError;
 
-    // Then, insert the new role associations
     const roleEntries = roles.map(roleId => ({
       agreement_id: validatedData.id,
       role_id: roleId
@@ -117,7 +114,6 @@ export async function updateAgreement(req: Request) {
     if (rolesError) throw rolesError;
   }
 
-  // Return the updated agreement with its roles
   const { data: agreementWithRoles, error: fetchError } = await supabaseAdmin
     .from("agreements")
     .select(`
@@ -134,7 +130,6 @@ export async function updateAgreement(req: Request) {
   });
 }
 
-// Handle DELETE request for deleting an agreement
 export async function deleteAgreement(req: Request) {
   const body = await req.json();
   const { id } = body;

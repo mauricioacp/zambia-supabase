@@ -12,7 +12,6 @@ export default {
   async fetch(req: Request) {
     try {
       const url = new URL(req.url);
-
       const corsResponse = handleCors(req);
       if (corsResponse) return corsResponse;
 
@@ -22,7 +21,6 @@ export default {
 
       const adminMatch = adminPathPattern.exec(url);
       if (adminMatch) {
-
         if (!validateAdminAuth(req)) {
           return new Response(JSON.stringify({ error: "Unauthorized" }), {
             status: 401,
@@ -33,9 +31,7 @@ export default {
         const resource = adminMatch.pathname.groups.resource;
         return handleAdminRoute(req, String(resource));
       }
-
       if (userCreationPattern.test(url) && req.method === "POST") {
-
         if (!validateAdminAuth(req)) {
           return new Response(JSON.stringify({ error: "Unauthorized" }), {
             status: 401,
@@ -47,7 +43,6 @@ export default {
       }
 
       if (superAdminCreationPattern.test(url) && req.method === "POST") {
-
         const isValidJWT = await validateSuperAdminJWT(req);
         if (!isValidJWT) {
           return new Response(JSON.stringify({ error: "Unauthorized" }), {
