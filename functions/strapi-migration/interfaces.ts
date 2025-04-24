@@ -31,7 +31,6 @@ export interface StrapiResponse<T> {
 }
 
 export interface SupabaseAgreement {
-  role_id: string;
   user_id: string | null;
   headquarter_id: string;
   season_id: string;
@@ -49,6 +48,7 @@ export interface SupabaseAgreement {
   mailing_agreement?: boolean;
   age_verification?: boolean;
   signature_data?: string;
+  roles?: string[]; // Array of role IDs
 }
 
 export interface SupabaseLookupItem {

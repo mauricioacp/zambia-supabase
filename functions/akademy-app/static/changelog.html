@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Changelog del Producto</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        /* Estilos personalizados para aproximar el look & feel */
+        body {
+            background-color: #022ac1; /* Fondo oscuro similar */
+            color: #e0e0e0; /* Texto principal claro */
+            font-family: sans-serif; /* Fuente por defecto */
+        }
+        /* Colores aproximados */
+        .border-grid {
+            border-color: #2a2a2a; /* Borde más oscuro */
+        }
+        .bg-grid-color {
+            background-color: #2a2a2a; /* Color para elementos de la 'grid' */
+        }
+        .text-primary-text {
+            color: #e0e0e0;
+        }
+        .text-secondary-text {
+            color: #a0a0a0; /* Texto secundario más tenue */
+        }
+        .text-brand-dark {
+            color: #17E9D1; /* Color de marca similar */
+        }
+        .hover\:text-brand-accent:hover {
+            color: #4ff9e1; /* Acento de marca en hover */
+        }
+        .bg-secondary-badge {
+            background-color: rgba(160, 160, 160, 0.2); /* Fondo de badge similar */
+        }
+        /* Estilos para el contenido del artículo (simulando .prose) */
+        .changelog-content h1, .changelog-content h2 {
+            color: #f0f0f0; /* Encabezados más brillantes */
+            margin-bottom: 0.5rem;
+        }
+        .changelog-content h1 {
+            font-size: 1.25rem; /* 20px */
+            line-height: 1.75rem; /* 28px */
+            font-weight: 500;
+            letter-spacing: -0.025em; /* tracking-tight */
+        }
+        .changelog-content h2 {
+            font-size: 1.125rem; /* 18px */
+            line-height: 1.75rem; /* 28px */
+            font-weight: 400;
+            margin-top: 1.5rem;
+        }
+        .changelog-content ul {
+            list-style: disc;
+            padding-left: 1.5rem;
+            margin-top: 0.5rem;
+            margin-bottom: 2rem;
+            color: #e0e0e0;
+        }
+        .changelog-content li {
+            margin-bottom: 0.5rem;
+            line-height: 1.5; /* leading-relaxed */
+        }
+        .changelog-content a {
+            color: #17E9D1;
+            text-decoration: underline;
+        }
+        .changelog-content a:hover {
+            color: #4ff9e1;
+        }
+        .changelog-content img {
+            margin-bottom: 2rem;
+            border-radius: 0.5rem; /* rounded-lg */
+        }
+        #starfield-canvas {
+            position: fixed; /* Fijo para que se quede detrás */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Detrás de todo el contenido */
+            display: block; /* Asegura que ocupe espacio */
+        }
+
+        /* Estilos base y transición para hover en banners y versión */
+        article.changelog-content img,
+        .sticky .bg-secondary-badge,
+        header .bg-secondary-badge {
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            /* Asegura que tengan algo de borde redondeado si no lo tienen ya */
+            border-radius: 0.375rem; /* Similar a rounded-md de Tailwind */
+        }
+
+        /* Efecto hover para banners */
+        article.changelog-content img:hover {
+            transform: translateY(-5px) scale(1.01); /* Levanta y agranda ligeramente */
+            box-shadow: 0 10px 30px rgba(23, 233, 209, 0.25); /* Sombra con color de marca */
+        }
+
+        /* Efecto hover para badges de versión (Desktop y Mobile) */
+        .sticky .bg-secondary-badge:hover,
+        header .bg-secondary-badge:hover {
+            transform: translateY(-3px); /* Levanta ligeramente */
+            box-shadow: 0 5px 15px rgba(23, 233, 209, 0.3); /* Sombra más sutil con color de marca */
+        }
+
+        /* --- Tus otros estilos personalizados --- */
+        /* ... (resto de tus estilos) ... */
+        .corner-box::before,
+        .corner-box::after {
+            content: '';
+            position: absolute;
+            width: 0.5rem; /* 8px */
+            height: 0.5rem; /* 8px */
+            background-color: #2a2a2a; /* bg-grid-color */
+            transform: rotate(-45deg);
+            z-index: 10;
+            display: none;
+        }
+        .corner-box.top-left::before { display: block; top: -0.25rem; left: -0.25rem; }
+        .corner-box.bottom-left::before { display: block; bottom: -0.25rem; left: -0.25rem; }
+        .corner-box.top-right::after { display: block; top: -0.25rem; right: -0.25rem; }
+        .corner-box.bottom-right::after { display: block; bottom: -0.25rem; right: -0.25rem; }
+
+
+    </style>
+</head>
+<body class="bg-[#0a0a0a] text-gray-200 font-sans">
+
+<canvas id="starfield-canvas"></canvas>
+
+<div class="mx-auto flex w-full max-w-[90rem] flex-col px-4 pt-20 md:pt-28">
+    <div class="flex grow flex-col justify-between">
+        <main class="mb-auto">
+            <div class="flex flex-col">
+                <div class="mx-auto flex w-full max-w-7xl flex-col items-center justify-center">
+                    <div class="relative grid w-full grid-cols-[0.1fr_3fr_0.1fr] md:grid-cols-[1fr_3.1fr_1fr]">
+
+                        <div class="absolute inset-0 pointer-events-none">
+                            <div class="absolute left-0 right-0 top-0 h-1 bg-gradient-to-b from-[#0a0a0a] to-transparent md:h-8"></div>
+                            <div class="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-[#0a0a0a] to-transparent"></div>
+                            <div class="absolute bottom-0 left-0 top-0 w-1 bg-gradient-to-r from-[#0a0a0a] to-transparent md:w-8"></div>
+                            <div class="absolute bottom-0 right-0 top-0 w-1 bg-gradient-to-l from-[#0a0a0a] to-transparent md:w-8"></div>
+                        </div>
+
+                        <div class="h-5 border-b border-grid md:h-16"></div>
+                        <div class="border-x border-b border-grid"></div>
+                        <div class="border-b border-grid"></div>
+
+                        <div class="border-b border-grid"></div>
+                        <div class="relative flex items-center justify-center border-x border-b border-grid corner-box top-left top-right bottom-left bottom-right">
+                            <div class="flex w-full flex-col items-center justify-center px-4 py-14 md:px-11 lg:items-start">
+                                <h1 class="w-full text-center text-4xl font-medium tracking-tight text-primary-text [text-shadow:_0_-20px_40px_rgba(255,255,255,0.10),_0_20px_40px_rgba(255,255,255,0.10)] md:text-5xl xl:text-start">
+                                    Changelog de Mi Producto
+                                </h1>
+                                <div class="mt-3 flex w-full items-center justify-center gap-4 xl:justify-start">
+                                    <a class="flex items-center font-mono text-sm font-medium text-brand-dark hover:text-brand-accent" target="_blank" href="#">
+                                        Ver Documentación
+                                    </a>
+                                    <span class="h-[3px] w-[3px] rounded-full bg-secondary-text"></span>
+                                    <a class="group inline-flex items-center gap-1.5 font-mono text-sm font-medium text-brand-dark hover:text-brand-accent" target="_blank" href="#">
+                                            <span class="inline-flex items-center gap-1.5">
+                                                Síguenos en
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="h-4 w-auto fill-brand-dark align-middle group-hover:fill-brand-accent">
+                                                    <path d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"></path>
+                                                </svg>
+                                            </span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="border-b border-grid"></div>
+
+                        <div class="border-b border-grid">
+                            <div class="sticky top-28 mt-16 hidden w-full items-start gap-4 px-4 pb-20 pt-4 md:flex md:flex-col">
+                                <div class="flex h-7 items-center rounded bg-secondary-badge px-4 text-base font-medium text-secondary-text">
+                                    v 1.1.0
+                                </div>
+                                <div class="text-sm text-secondary-text">22 Abril, 2025</div>
+                            </div>
+                        </div>
+
+                        <div id="1.1.0" class="relative flex scroll-mt-28 flex-col border-x border-b border-grid corner-box bottom-left bottom-right">
+                            <div class="mx-auto my-5 flex w-full max-w-5xl flex-col px-4 md:mb-10 md:mt-20 md:px-11">
+                                <header class="mb-5 flex flex-col gap-2 md:hidden">
+                                    <div class="w-fit rounded bg-secondary-badge px-4 py-1 text-base font-medium text-secondary-text">
+                                        v 1.1.0
+                                    </div>
+                                    <div class="text-sm text-secondary-text">22 Abril, 2025</div>
+                                </header>
+                                <article class="w-full changelog-content">
+                                    <h1>Nueva Funcionalidad Increíble y Mejoras</h1>
+                                    <img alt="Banner changelog v1.1.0" loading="lazy" width="1225" height="448" class="mb-10 h-auto w-full rounded-md" style="color:transparent" src="https://placehold.co/1225x448/1a1a1a/e0e0e0?text=Banner+v1.1.0">
+
+                                    <h2>✨ Nueva Funcionalidad: Editor Mágico</h2>
+                                    <ul>
+                                        <li>Ahora puedes editar texto con nuestro nuevo Editor Mágico.</li>
+                                        <li>Soporte para múltiples formatos y colaboración en tiempo real.</li>
+                                        <li>Integración con servicios externos mejorada.</li>
+                                    </ul>
+
+                                    <h2>🚀 Mejoras de Rendimiento</h2>
+                                    <ul>
+                                        <li>Optimización del tiempo de carga inicial en un 30%.</li>
+                                        <li>Reducción del uso de memoria en operaciones complejas.</li>
+                                        <li>Mejora general de la fluidez de la interfaz.</li>
+                                    </ul>
+
+                                    <h2>🐛 Corrección de Errores</h2>
+                                    <ul>
+                                        <li>Solucionado un problema que causaba cierres inesperados al guardar.</li>
+                                        <li>Corregido error visual en la barra lateral en pantallas pequeñas.</li>
+                                        <li>Mejorada la compatibilidad con navegadores antiguos.</li>
+                                    </ul>
+                                </article>
+                            </div>
+                        </div>
+
+                        <div class="border-b border-grid"></div>
+
+                        <div class="border-b border-grid">
+                            <div class="sticky top-28 mt-16 hidden w-full items-start gap-4 px-4 pb-20 pt-4 md:flex md:flex-col">
+                                <div class="flex h-7 items-center rounded bg-secondary-badge px-4 text-base font-medium text-secondary-text">
+                                    v 1.0.0
+                                </div>
+                                <div class="text-sm text-secondary-text">15 Abril, 2025</div>
+                            </div>
+                        </div>
+
+                        <div id="1.0.0" class="relative flex scroll-mt-28 flex-col border-x border-b border-grid corner-box bottom-left bottom-right">
+                            <div class="mx-auto my-5 flex w-full max-w-5xl flex-col px-4 md:mb-10 md:mt-20 md:px-11">
+                                <header class="mb-5 flex flex-col gap-2 md:hidden">
+                                    <div class="w-fit rounded bg-secondary-badge px-4 py-1 text-base font-medium text-secondary-text">
+                                        v 1.0.0
+                                    </div>
+                                    <div class="text-sm text-secondary-text">15 Abril, 2025</div>
+                                </header>
+                                <article class="w-full changelog-content">
+                                    <h1>🎉 Lanzamiento Inicial del Producto</h1>
+                                    <img alt="Banner changelog v1.0.0" loading="lazy" width="1225" height="448" class="mb-10 h-auto w-full rounded-md" style="color:transparent" src="https://placehold.co/1225x448/1a1a1a/e0e0e0?text=Banner+v1.0.0">
+
+                                    <h2>🚀 Características Principales</h2>
+                                    <ul>
+                                        <li>Presentación de la plataforma base.</li>
+                                        <li>Funcionalidades clave de creación y gestión.</li>
+                                        <li>Interfaz de usuario intuitiva y moderna.</li>
+                                    </ul>
+                                    <h2>🛠️ Próximos Pasos</h2>
+                                    <ul>
+                                        <li>Implementación de nuevas herramientas de análisis.</li>
+                                        <li>Expansión de las opciones de personalización.</li>
+                                    </ul>
+                                </article>
+                            </div>
+                        </div>
+
+                        <div class="border-b border-grid"></div>
+
+                        <div class="h-16 border-grid"></div>
+                        <div class="border-l border-grid"></div>
+                        <div class="border-l border-grid"></div>
+                    </div></div>
+            </div>
+        </main>
+    </div>
+</div>
+<script>
+    // Espera a que el DOM esté listo (opcional pero buena práctica)
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('starfield-canvas');
+        if (!canvas) {
+            console.error("Canvas element not found!");
+            return;
+        }
+
+        // Escena
+        const scene = new THREE.Scene();
+
+        // Cámara
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 1; // Posición inicial ajustada para ver las estrellas
+
+        // Renderer
+        const renderer = new THREE.WebGLRenderer({
+            canvas: canvas,
+            alpha: true // Permite fondo transparente si es necesario, aunque el body ya tiene bg
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimiza para pantallas de alta densidad
+
+        // Geometría de las estrellas
+        const starGeometry = new THREE.BufferGeometry();
+        const starCount = 10000; // Número de estrellas
+        const positions = new Float32Array(starCount * 3); // x, y, z para cada estrella
+
+        for (let i = 0; i < starCount * 3; i++) {
+            // Posiciones aleatorias en un cubo grande
+            positions[i] = (Math.random() - 0.5) * 100; // Ajusta el '100' para cambiar la dispersión
+        }
+
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        // Material de las estrellas
+        const starMaterial = new THREE.PointsMaterial({
+            color: 0xaaaaaa, // Color grisáceo de las estrellas
+            size: 0.05,      // Tamaño de las estrellas
+            sizeAttenuation: true // Las estrellas lejanas parecen más pequeñas
+        });
+
+        // Objeto de Puntos (las estrellas)
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+
+        // Manejar redimensionamiento de ventana
+        window.addEventListener('resize', () => {
+            // Actualizar dimensiones de la cámara
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            // Actualizar dimensiones del renderer
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        });
+
+        // Bucle de animación
+        const animate = () => {
+            requestAnimationFrame(animate);
+
+            // Rotación sutil del campo de estrellas (opcional)
+            stars.rotation.x += 0.0001;
+            stars.rotation.y += 0.0001;
+
+            renderer.render(scene, camera);
+        };
+
+        animate(); // Inicia la animación
+    });
+</script>
+</body>
+</html>
