@@ -200,36 +200,4 @@ SELECT
 FROM headquarters;
 
 
-
-
--- Test Users: Only for development
--- Uncomment this section for local development if needed
-/*
--- Create test users in auth schema if in development mode
-DO $$
-BEGIN
-  IF current_setting('app.environment', TRUE)::text = 'development' THEN
-    -- This function only works in local development with Supabase
-    PERFORM supabase_auth.create_user(
-      email := 'admin@example.com',
-      password := 'password123',
-      email_confirmed := true,
-      data := '{"name": "Admin User", "role": "admin"}'::jsonb
-    );
-    
-    -- Insert agreements with test user
-    INSERT INTO agreements (role_id, user_id, headquarter_id, status, email, name, last_name)
-    SELECT 
-      (SELECT id FROM roles WHERE code = 'superadmin'), 
-      (SELECT id FROM auth.users WHERE email = 'admin@example.com'), 
-      (SELECT id FROM headquarters LIMIT 1), 
-      'active', 
-      'admin@example.com', 
-      'Admin', 
-      'User';
-  END IF;
-END
-$$;
-*/
-
 COMMIT;

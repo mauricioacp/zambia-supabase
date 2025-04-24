@@ -90,6 +90,7 @@ async function createTestUser(
       email,
       password: TEST_USER_PASSWORD,
       email_confirm: true,
+      user_metadata: { roles:  [role]}
     });
 
   if (error) {
