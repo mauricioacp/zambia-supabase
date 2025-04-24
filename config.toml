@@ -55,6 +55,7 @@ schema_paths = [
   "./schemas/seasons.sql",
   "./schemas/roles.sql",
   "./schemas/agreements.sql",
+  "./schemas/agreement_with_roles.sql",
   "./schemas/students.sql",
   "./schemas/collaborators.sql",
   "./schemas/workshops.sql",
@@ -325,4 +326,11 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/strapi-migration/deno.json"
 entrypoint = "./functions/strapi-migration/index.ts"
+# static_files = [ "./functions/strapi-migration/*.html" ]
+
+[functions.akademy-app]
+enabled = true
+verify_jwt = true
+import_map = "./functions/akademy-app/deno.json"
+entrypoint = "./functions/akademy-app/main.ts"
 # static_files = [ "./functions/strapi-migration/*.html" ]

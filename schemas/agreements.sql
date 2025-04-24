@@ -1,7 +1,6 @@
 -- Agreements table definition
 CREATE TABLE agreements (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    role_id UUID REFERENCES roles(id) ON DELETE RESTRICT,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL NULL, -- Allow NULL for development
     headquarter_id UUID REFERENCES headquarters(id) ON DELETE RESTRICT,
     season_id UUID REFERENCES seasons(id) ON DELETE SET NULL,
@@ -19,14 +18,13 @@ CREATE TABLE agreements (
     mailing_agreement BOOLEAN DEFAULT FALSE,
     age_verification BOOLEAN DEFAULT FALSE,
     signature_data TEXT,
-    UNIQUE (user_id, season_id, role_id)
+    UNIQUE (user_id, season_id)
 );
 
 CREATE TRIGGER handle_updated_at_agreements
     BEFORE UPDATE ON agreements
     FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
 
-CREATE INDEX idx_agreements_role_id ON agreements(role_id);
 CREATE INDEX idx_agreements_user_id ON agreements(user_id);
 CREATE INDEX idx_agreements_headquarter_id ON agreements(headquarter_id);
 CREATE INDEX idx_agreements_season_id ON agreements(season_id);
@@ -68,3 +66,28 @@ ON agreements
 FOR DELETE
 TO authenticated
 USING (true);
+
+-- Junction table to link agreements and roles (Many-to-Many)
+CREATE TABLE agreement_roles (
+    agreement_id UUID NOT NULL REFERENCES agreements(id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (agreement_id, role_id)
+);
+
+-- Indexes for performance
+CREATE INDEX idx_agreement_roles_agreement_id ON agreement_roles(agreement_id);
+CREATE INDEX idx_agreement_roles_role_id ON agreement_roles(role_id);
+
+-- Enable Row Level Security
+ALTER TABLE agreement_roles ENABLE ROW LEVEL SECURITY;
+
+-- Basic RLS Policies for the new table
+CREATE POLICY "Allow authenticated users to view agreement roles"
+ON agreement_roles FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Allow authenticated users to insert agreement roles"
+ON agreement_roles FOR INSERT TO authenticated WITH CHECK (true);
+
+CREATE POLICY "Allow authenticated users to delete agreement roles"
+ON agreement_roles FOR DELETE TO authenticated USING (true);
