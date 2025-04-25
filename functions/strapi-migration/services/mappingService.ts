@@ -95,7 +95,7 @@ export async function matchData(
       mailing_agreement: strapiAgreement.mailingAgreement,
       age_verification: strapiAgreement.ageVerification,
       signature_data: strapiAgreement.signDataPath,
-      roles: [strapiAgreement.role],
+      role_id: strapiAgreement.role,
       headquarter_id: strapiAgreement.headQuarters,
       status: agreementStatus,
       user_id: null,
@@ -137,13 +137,8 @@ export async function matchData(
   console.log(`Excluded ${excludedCount} agreements from insertion`);
 
   try {
-    // Process agreements and roles separately
-    const agreementsToInsert = filteredAgreements.map(agreement => {
-      const { roles, ...agreementData } = agreement;
-      return agreementData;
-    });
+    const agreementsToInsert = filteredAgreements;
 
-    // Insert agreements first
     const { data, error, count } = await supabaseClient
       .from("agreements")
       .insert(agreementsToInsert, {
@@ -154,35 +149,6 @@ export async function matchData(
 
     if (error) {
       throw error;
-    }
-
-    // Now insert role associations for each agreement
-    if (data && Array.isArray(data) && data.length > 0) {
-      const roleEntries = [];
-
-      for (let i = 0; i < data.length; i++) {
-        const agreement = data[i];
-        const roles = filteredAgreements[i].roles || [];
-
-        for (const roleId of roles) {
-          if (roleId) {
-            roleEntries.push({
-              agreement_id: agreement.id,
-              role_id: roleId
-            });
-          }
-        }
-      }
-
-      if (roleEntries.length > 0) {
-        const { error: rolesError } = await supabaseClient
-          .from("agreement_roles")
-          .insert(roleEntries);
-
-        if (rolesError) {
-          console.error("Error inserting role associations:", rolesError);
-        }
-      }
     }
 
     return {

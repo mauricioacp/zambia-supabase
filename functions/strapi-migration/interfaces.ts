@@ -34,11 +34,11 @@ export interface SupabaseAgreement {
   user_id: string | null;
   headquarter_id: string;
   season_id: string;
-  status: string; // 'active', 'inactive', 'prospect' (default: 'prospect')
+  status: string; // 'active', 'graduated', 'inactive', 'prospect'
   email: string;
   document_number: string;
   phone: string;
-  created_at: string; // TIMESTAMPTZ (ISO 8601 string format)
+  created_at: string; // ISO 8601 timestamp
   updated_at?: string;
   name?: string;
   last_name?: string;
@@ -48,7 +48,7 @@ export interface SupabaseAgreement {
   mailing_agreement?: boolean;
   age_verification?: boolean;
   signature_data?: string;
-  roles?: string[]; // Array of role IDs
+  role_id: string;
 }
 
 export interface SupabaseLookupItem {

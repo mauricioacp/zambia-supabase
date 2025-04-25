@@ -55,7 +55,7 @@ schema_paths = [
   "./schemas/seasons.sql",
   "./schemas/roles.sql",
   "./schemas/agreements.sql",
-  "./schemas/agreement_with_roles.sql",
+  "./schemas/agreement_with_role.sql",
   "./schemas/students.sql",
   "./schemas/collaborators.sql",
   "./schemas/workshops.sql",

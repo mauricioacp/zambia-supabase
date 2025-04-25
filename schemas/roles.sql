@@ -5,6 +5,7 @@ CREATE TABLE roles (
     name TEXT NOT NULL,
     description TEXT,
     status TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active',
+    level INTEGER NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     permissions JSONB DEFAULT '{}'

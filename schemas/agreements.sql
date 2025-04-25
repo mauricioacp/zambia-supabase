@@ -4,6 +4,7 @@ CREATE TABLE agreements (
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL NULL, -- Allow NULL for development
     headquarter_id UUID REFERENCES headquarters(id) ON DELETE RESTRICT,
     season_id UUID REFERENCES seasons(id) ON DELETE SET NULL,
+    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
     status TEXT CHECK (status IN ('active', 'graduated', 'inactive', 'prospect')) DEFAULT 'prospect',
     email TEXT NOT NULL,
     document_number TEXT,
@@ -66,28 +67,3 @@ ON agreements
 FOR DELETE
 TO authenticated
 USING (true);
-
--- Junction table to link agreements and roles (Many-to-Many)
-CREATE TABLE agreement_roles (
-    agreement_id UUID NOT NULL REFERENCES agreements(id) ON DELETE CASCADE,
-    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    PRIMARY KEY (agreement_id, role_id)
-);
-
--- Indexes for performance
-CREATE INDEX idx_agreement_roles_agreement_id ON agreement_roles(agreement_id);
-CREATE INDEX idx_agreement_roles_role_id ON agreement_roles(role_id);
-
--- Enable Row Level Security
-ALTER TABLE agreement_roles ENABLE ROW LEVEL SECURITY;
-
--- Basic RLS Policies for the new table
-CREATE POLICY "Allow authenticated users to view agreement roles"
-ON agreement_roles FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Allow authenticated users to insert agreement roles"
-ON agreement_roles FOR INSERT TO authenticated WITH CHECK (true);
-
-CREATE POLICY "Allow authenticated users to delete agreement roles"
-ON agreement_roles FOR DELETE TO authenticated USING (true);

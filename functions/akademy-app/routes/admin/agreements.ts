@@ -4,18 +4,19 @@ import { AgreementSchema } from "../../schemas/agreement.ts";
 
 // Handle GET request for agreements
 export async function getAgreements() {
-  const { data: agreements, error: agreementsError } = await supabaseAdmin
-    .from("agreements")
-    .select(`
-      *,
-      roles:agreement_roles(role_id)
-    `);
+  // TODO: Implement getAgreements function
+  // const { data: agreements, error: agreementsError } = await supabaseAdmin
+  //   .from("agreements")
+  //   .select(`
+  //     *,
+  //     roles:agreement_roles(role_id)
+  //   `);
 
-  if (agreementsError) throw agreementsError;
+  // if (agreementsError) throw agreementsError;
 
-  return new Response(JSON.stringify({ data: agreements }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  // return new Response(JSON.stringify({ data: agreements }), {
+    // headers: { ...corsHeaders, "Content-Type": "application/json" },
+  // });
 }
 
 // Handle POST request for creating an agreement
@@ -37,14 +38,14 @@ export async function createAgreement(req: Request) {
   if (agreementError) throw agreementError;
 
   // If roles are provided, insert them into the agreement_roles table
-  if (roles.length > 0) {
+  if (roles.length > 0) {// doesnt exist anymore
     const roleEntries = roles.map(roleId => ({
       agreement_id: agreement.id,
       role_id: roleId
     }));
 
     const { error: rolesError } = await supabaseAdmin
-      .from("agreement_roles")
+      .from("agreement_roles") // doesnt exist anymore
       .insert(roleEntries);
 
     if (rolesError) throw rolesError;
@@ -55,7 +56,7 @@ export async function createAgreement(req: Request) {
     .from("agreements")
     .select(`
       *,
-      roles:agreement_roles(role_id)
+      roles:agreement_roles(role_id) // doesnt exist anymore
     `)
     .eq("id", agreement.id)
     .single();
@@ -96,7 +97,7 @@ export async function updateAgreement(req: Request) {
   if (roles.length > 0) {
 
     const { error: deleteError } = await supabaseAdmin
-      .from("agreement_roles")
+      .from("agreement_roles") // doesnt exist anymore
       .delete()
       .eq("agreement_id", validatedData.id);
 
@@ -108,24 +109,15 @@ export async function updateAgreement(req: Request) {
     }));
 
     const { error: rolesError } = await supabaseAdmin
-      .from("agreement_roles")
+      .from("agreement_roles") // doesnt exist anymore
       .insert(roleEntries);
 
     if (rolesError) throw rolesError;
   }
 
-  const { data: agreementWithRoles, error: fetchError } = await supabaseAdmin
-    .from("agreements")
-    .select(`
-      *,
-      roles:agreement_roles(role_id)
-    `)
-    .eq("id", validatedData.id)
-    .single();
 
-  if (fetchError) throw fetchError;
-
-  return new Response(JSON.stringify({ data: agreementWithRoles }), {
+// TODO 
+  return new Response(JSON.stringify({ data: null }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }

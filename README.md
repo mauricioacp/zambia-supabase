@@ -1,71 +1,137 @@
-# Akademia Database Schema
+# Akademia Supabase Project
 
-This repository contains the database schema for the Akademia project, organized using Supabase's declarative schema approach.
+This repository contains the backend for the Akademia project, powered by Supabase. It includes:
 
-## Schema Organization
+- PostgreSQL schema and migrations
+- Seed data and TypeScript seeding scripts
+- Supabase Edge Functions (Deno/TypeScript)
+- Developer scripts for local environment management
 
-The database schema is divided into multiple files in the `schemas/` directory:
+## Table of Contents
 
-1. `extensions.sql` - Database extensions
-2. `countries.sql` - Countries table and related objects
-3. `headquarters.sql` - Headquarters table and related objects
-4. `seasons.sql` - Seasons table and related objects
-5. `roles.sql` - Roles table and related objects
-6. `agreements.sql` - Agreements table and related objects
-7. `students.sql` - Students table and related objects
-8. `collaborators.sql` - Collaborators table and related objects
-9. `workshops.sql` - Workshops table and related objects
-10. `events.sql` - Events table and related objects
-11. `processes.sql` - Processes table and related objects
+- [Prerequisites](#prerequisites)
+- [Quickstart](#quickstart)
+- [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [Database Schema & Migrations](#database-schema--migrations)
+- [Seed Data](#seed-data)
+- [Edge Functions](#edge-functions)
+  - [Strapi Migration Function](#strapi-migration-function)
+  - [Akademy Admin Function](#akademy-admin-function)
+- [Developer Scripts](#developer-scripts)
+- [Development Workflow](#development-workflow)
+- [Deployment](#deployment)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Working with Schema Changes
+## Prerequisites
 
-When modifying the database schema, follow these steps:
+- Supabase CLI (>=1.x)
+- Docker & Docker Compose
+- Deno (>=1.x)
+- Node.js & npm
+- PowerShell (Windows)
 
-1. **Stop the local database**:
+## Quickstart
+
+1. Clone this repo:
    ```bash
-   supabase stop
+   git clone <repo-url>
+   cd supabase
    ```
-
-2. **Make changes to schema files**:
-   Edit the appropriate file in the `schemas/` directory.
-
-3. **Generate a new migration**:
-   ```bash
-   supabase db diff -f descriptive_name_for_change
-   ```
-
-4. **Review the generated migration**:
-   Check the new file in `migrations/` to confirm it contains the expected changes.
-
-5. **Apply the pending migration**:
-   ```bash
-   supabase start && supabase migration up
-   ```
-   
-you can also use supabase db reset
-
-## Deploying Schema Changes
-
-To deploy schema changes to a remote Supabase project:
-
-1. **Log in to Supabase CLI**:
-   ```bash
-   supabase login
-   ```
-
-2. **Link your remote project** (if not already linked):
+2. (Optional) Link a remote project:
    ```bash
    supabase link
    ```
-
-3. **Deploy database changes**:
+3. Start local services:
    ```bash
-   supabase db push
+   supabase start
+   ```
+4. Apply migrations and seed data:
+   ```bash
+   supabase db reset
+   ```
+5. Serve Edge Functions:
+   ```bash
+   supabase functions serve --env-file ./functions/strapi-migration/.env
+   supabase functions serve --env-file ./functions/akademy-app/.env
+   ```
+6. (Optional) Full dev environment reset & start:
+   ```powershell
+   .\scripts\regenerate-dev.ps1 -Verbose
    ```
 
-## Dependencies Management
+## Project Structure
 
-Schema files are loaded in the order specified in `config.toml`. This ensures that tables with foreign key dependencies are created in the correct order.
+```
+/ (root)
+├─ config.toml           # Supabase CLI configuration
+├─ schemas/              # Declarative SQL schema files
+├─ migrations/           # Auto-generated migration files
+├─ seed.sql              # Initial seed data
+├─ functions/            # Supabase Edge Functions
+│  ├─ strapi-migration/  # Migrate data from Strapi CMS
+│  └─ akademy-app/       # Admin API for agreements, roles, etc.
+├─ scripts/              # Developer helper scripts
+│  └─ regenerate-dev.ps1  # Reset & start local environment
+└─ README.md             # Project overview (this file)
+```
 
-If you need to add new schema files, make sure to update the `schema_paths` list in `config.toml`.
+## Configuration
+
+- **config.toml**: Defines project ID, ports, enabled services, and schema/seed paths.
+- **.env** files (in `functions/*` and `scripts/`): Store API URLs, tokens, and Supabase keys.
+
+To get local schema types:
+
+```bash
+supabase gen types typescript --local > scripts/supabase.type.ts
+```
+
+## Database Schema & Migrations
+
+Schemas live in `schemas/` and load in order via `config.toml`:
+
+```toml
+schema_paths = [
+  "./schemas/extensions.sql",
+  ...
+]
+```
+
+To update the schema:
+1. Stop services: `supabase stop`
+2. Edit SQL in `schemas/`
+3. Generate migration: `supabase db diff -f descriptive_name`
+4. Include in config.toml
+5. Apply migrations: `supabase db reset`
+
+## Seed Data
+
+- **seed.sql**: Core seed statements.
+- **scripts/create-test-users.ts**: Deno script to generate test users.
+
+## Developer Scripts
+
+- **regenerate-dev.ps1**: Automates environment reset, local Supabase, functions, Node app, ngrok, and initial migration/seed.
+
+## Development Workflow
+
+1. Start Supabase and functions locally
+2. Modify schemas or function code
+3. Test endpoints (e.g., `http://localhost:54321/functions/v1/...`)
+4. Commit changes and migrations
+
+## Deployment
+
+- Push database changes: `supabase db push`
+- Deploy functions: `supabase functions deploy`
+- Ensure production env vars are set securely
+
+## Contributing
+
+Contributions welcome! Please open an issue or PR with details of your changes.
+
+## License
+
+This project is licensed under the MIT License.
