@@ -1,7 +1,7 @@
 -- Students table definition
 CREATE TABLE students (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
     agreement_id UUID REFERENCES agreements(id) ON DELETE CASCADE,
     headquarter_id UUID REFERENCES headquarters(id) ON DELETE RESTRICT,
     season_id UUID REFERENCES seasons(id) ON DELETE RESTRICT,
@@ -24,7 +24,7 @@ ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 CREATE POLICY students_select_own_hq_high_mentor
 ON students FOR SELECT
 USING (
-    user_id = auth.uid() OR
+    user_id = (select auth.uid()) OR
     fn_get_current_role_level() >= 80 OR
     headquarter_id = fn_get_current_hq_id()
     -- TODO: Add join logic for assigned mentors (e.g., companions/facilitators)

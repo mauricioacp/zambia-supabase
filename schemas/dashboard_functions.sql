@@ -437,21 +437,17 @@ BEGIN
         -- Add role-specific details for collaborators
         IF target_role.name = 'Companion' THEN
             -- Logic specific to Companions
-            WITH AssignedStudentDetails AS (
-                -- Get students assigned to the calling companion
-                SELECT jsonb_build_object(
-                           'student_id', s.id, -- Join students on students.id
-                           'first_name', s.first_name,
-                           'last_name', s.last_name,
-                           'status', s.status
-                       ) as student_info
-                FROM companion_student_map csm
-                JOIN students s ON csm.student_id = s.id
-                WHERE csm.companion_id = target_user_id
-            )
             collaborator_details := collaborator_details || jsonb_build_object(
                 'assigned_students', (
-                    SELECT COALESCE(jsonb_agg(student_info), '[]'::jsonb) FROM AssignedStudentDetails
+                    SELECT COALESCE(jsonb_agg(jsonb_build_object(
+                               'student_id', s.id, -- Join students on students.id
+                               'first_name', s.first_name,
+                               'last_name', s.last_name,
+                               'status', s.status
+                           )), '[]'::jsonb)
+                    FROM companion_student_map csm
+                    JOIN students s ON csm.student_id = s.id
+                    WHERE csm.companion_id = target_user_id
                 )
             );
 

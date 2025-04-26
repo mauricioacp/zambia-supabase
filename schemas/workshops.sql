@@ -33,8 +33,8 @@ CREATE POLICY workshops_select_auth_hq
 ON workshops FOR SELECT
 USING (
     (auth.role() = 'authenticated' AND headquarter_id = fn_get_current_hq_id()) OR
-    fn_get_current_role_level() >= 80
-    -- Participant list access might be better handled via specific functions/views
+    fn_get_current_role_level() >= 80 OR
+    facilitator_user_id = (select auth.uid())
 );
 
 -- INSERT: Manager+ (>=50) for own HQ, Director+ (>=90) for any HQ
@@ -49,21 +49,18 @@ WITH CHECK (
 CREATE POLICY workshops_update_facilitator_manager_director
 ON workshops FOR UPDATE
 USING (
+    -- User is the assigned facilitator (assuming facilitator_user_id = auth.uid())
+    facilitator_user_id = (select auth.uid()) OR
+    -- User is Manager+ for the workshop's current HQ
     (fn_get_current_role_level() >= 50 AND headquarter_id = fn_get_current_hq_id()) OR
+    -- User is Director+
     fn_get_current_role_level() >= 90
 )
 WITH CHECK (
-    -- Checks ensure the user maintains the necessary level/association for the record they are modifying
-    ( -- Facilitator check (if facilitator_id is not changing)
-      facilitator_user_id = OLD.facilitator_user_id AND facilitator_user_id = fn_get_current_collaborator_id() -- Requires helper fn
-    ) OR
-    ( -- Manager check (if HQ is not changing or they are director)
-      fn_get_current_role_level() >= 50 AND (headquarter_id = fn_get_current_hq_id() OR fn_get_current_role_level() >= 90)
-    ) OR
-    ( -- Director check (can modify anything)
-      fn_get_current_role_level() >= 90
-    )
-    -- Add specific field checks if needed
+    -- The resulting workshop's HQ must match the user's current HQ,
+    -- UNLESS the user is a Director+ who can place it anywhere.
+    (headquarter_id = fn_get_current_hq_id()) OR
+    (fn_get_current_role_level() >= 90)
 );
 
 -- DELETE: Director+ (>=90) only

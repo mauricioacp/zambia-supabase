@@ -61,13 +61,13 @@ ALTER TABLE agreements ENABLE ROW LEVEL SECURITY;
 
 -- Policies for the agreements table
 
--- SELECT: Own record, high level role (>=80), or same HQ
+-- SELECT: Own record, high level role (>=90), or same HQ with manager+ (>=50)
 CREATE POLICY agreements_select_own_hq_high
 ON agreements FOR SELECT
 USING (
-    user_id = auth.uid() OR
-    fn_get_current_role_level() >= 80 OR
-    headquarter_id = fn_get_current_hq_id()
+    user_id = (select auth.uid()) OR
+    fn_get_current_role_level() >= 90 OR
+    (fn_get_current_role_level() >= 50 AND headquarter_id = fn_get_current_hq_id())
 );
 
 -- INSERT (anon): Allow anonymous users to create prospects
@@ -82,18 +82,26 @@ ON agreements FOR INSERT
 TO authenticated
 WITH CHECK ( fn_get_current_role_level() >= 50 );
 
--- UPDATE: Own record or manager+ (>=50)
+-- UPDATE: Own record, manager+ (>=50) for own HQ, director+ (>=90) for any
 CREATE POLICY agreements_update_own_manager
 ON agreements FOR UPDATE
 USING (
-    user_id = auth.uid() OR
-    fn_get_current_role_level() >= 50
+    user_id = (select auth.uid()) OR
+    fn_get_current_role_level() >= 90 OR
+    (fn_get_current_role_level() >= 50 AND headquarter_id = fn_get_current_hq_id())
 )
 WITH CHECK (
-    fn_get_current_role_level() >= 50
+    -- If updating own record, no specific level check needed beyond USING clause
+    user_id = (select auth.uid())
+    OR
+    -- If updating within own HQ (and not own record), need level >= 50
+    (fn_get_current_role_level() >= 50 AND headquarter_id = fn_get_current_hq_id())
+    OR
+    -- If updating any record (and potentially changing HQ), need level >= 90
+    fn_get_current_role_level() >= 90
 );
 
--- DELETE: Admin only (>=100)
+-- DELETE: Director+ (>=90) only
 CREATE POLICY agreements_delete_admin
 ON agreements FOR DELETE
-USING ( fn_get_current_role_level() >= 100 );
+USING ( fn_get_current_role_level() >= 90 );

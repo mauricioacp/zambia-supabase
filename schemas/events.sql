@@ -33,7 +33,7 @@ ON events FOR SELECT
 USING (
     (auth.role() = 'authenticated' AND headquarter_id = fn_get_current_hq_id()) OR
     fn_get_current_role_level() >= 80
-    -- Participant list access might be better handled via specific functions/views
+    OR user_id = (select auth.uid())
 );
 
 -- INSERT: Manager+ (>=50) for own HQ, Director+ (>=90) for any HQ

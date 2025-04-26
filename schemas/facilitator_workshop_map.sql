@@ -17,20 +17,21 @@ CREATE INDEX idx_facilitator_workshop_map_workshop_id ON facilitator_workshop_ma
 ALTER TABLE facilitator_workshop_map ENABLE ROW LEVEL SECURITY;
 
 -- POLICIES
--- SELECT: Facilitator sees own assignments, Manager+ sees HQ assignments, Director+ sees all
-CREATE POLICY "Allow SELECT for assigned Facilitator" ON facilitator_workshop_map
-    FOR SELECT
-    USING (auth.uid() = facilitator_id);
-
-CREATE POLICY "Allow SELECT for HQ Managers and Directors" ON facilitator_workshop_map
+-- Combined SELECT: Facilitator sees own assignments, Manager+ sees HQ assignments, Director+ sees all
+CREATE POLICY "Allow SELECT for facilitator, managers, directors" ON facilitator_workshop_map
     FOR SELECT
     USING (
+        -- Assigned Facilitator
+        (select auth.uid()) = facilitator_id
+        OR
+        -- HQ Manager+ (level 50+) sees workshops in their HQ
         (fn_get_current_role_level() >= 50 AND EXISTS (
             SELECT 1 FROM workshops w
             WHERE w.id = facilitator_workshop_map.workshop_id
-            AND w.headquarter_id = ANY(fn_get_current_user_headquarter_ids())
+            AND w.headquarter_id = fn_get_current_hq_id()
         ))
         OR
+        -- Director+ (level 80+) sees all
         (fn_get_current_role_level() >= 80)
     );
 
@@ -42,7 +43,7 @@ CREATE POLICY "Allow INSERT for HQ Managers and Directors" ON facilitator_worksh
             SELECT 1 FROM workshops w
             JOIN collaborators c ON c.user_id = facilitator_workshop_map.facilitator_id
             WHERE w.id = facilitator_workshop_map.workshop_id
-            AND w.headquarter_id = ANY(fn_get_current_user_headquarter_ids())
+            AND w.headquarter_id = fn_get_current_hq_id()
             AND c.headquarter_id = w.headquarter_id -- Ensure facilitator and workshop are in the same HQ for manager insert
         ))
         OR
@@ -56,7 +57,7 @@ CREATE POLICY "Allow UPDATE for HQ Managers and Directors" ON facilitator_worksh
         (fn_get_current_role_level() >= 50 AND EXISTS (
             SELECT 1 FROM workshops w
             WHERE w.id = facilitator_workshop_map.workshop_id
-            AND w.headquarter_id = ANY(fn_get_current_user_headquarter_ids())
+            AND w.headquarter_id = fn_get_current_hq_id()
         ))
         OR
         (fn_get_current_role_level() >= 80)
@@ -70,14 +71,12 @@ CREATE POLICY "Allow DELETE for HQ Managers and Directors" ON facilitator_worksh
         (fn_get_current_role_level() >= 50 AND EXISTS (
             SELECT 1 FROM workshops w
             WHERE w.id = facilitator_workshop_map.workshop_id
-            AND w.headquarter_id = ANY(fn_get_current_user_headquarter_ids())
+            AND w.headquarter_id = fn_get_current_hq_id()
         ))
         OR
         (fn_get_current_role_level() >= 80)
     );
 
-
 -- Ensure updated_at is set
 CREATE TRIGGER handle_updated_at BEFORE UPDATE ON facilitator_workshop_map
   FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
-

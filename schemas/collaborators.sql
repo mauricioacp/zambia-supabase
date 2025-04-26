@@ -1,7 +1,7 @@
 -- Collaborators table definition
 CREATE TABLE collaborators (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
     agreement_id UUID REFERENCES agreements(id) ON DELETE CASCADE,
     role_id UUID REFERENCES roles(id) ON DELETE RESTRICT,
     headquarter_id UUID REFERENCES headquarters(id) ON DELETE RESTRICT,
@@ -24,7 +24,7 @@ ALTER TABLE collaborators ENABLE ROW LEVEL SECURITY;
 CREATE POLICY collaborators_select_self_hq_high
 ON collaborators FOR SELECT
 USING (
-    user_id = auth.uid() OR
+    user_id = (select auth.uid()) OR
     (fn_get_current_role_level() >= 50 AND headquarter_id = fn_get_current_hq_id()) OR
     fn_get_current_role_level() >= 90
 );
@@ -41,13 +41,13 @@ WITH CHECK (
 CREATE POLICY collaborators_update_self_manager_director
 ON collaborators FOR UPDATE
 USING (
-    user_id = auth.uid() OR
+    user_id = (select auth.uid()) OR
     (fn_get_current_role_level() >= 50 AND headquarter_id = fn_get_current_hq_id()) OR
     fn_get_current_role_level() >= 90
 )
 WITH CHECK (
     ( -- If updating own record, no specific level check needed beyond USING clause
-      user_id = auth.uid()
+      user_id = (select auth.uid())
     ) OR
     ( -- If updating within own HQ (and not own record), need level >= 50
       fn_get_current_role_level() >= 50 AND headquarter_id = fn_get_current_hq_id()

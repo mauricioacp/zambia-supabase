@@ -17,20 +17,21 @@ CREATE INDEX idx_companion_student_map_student_id ON companion_student_map(stude
 ALTER TABLE companion_student_map ENABLE ROW LEVEL SECURITY;
 
 -- POLICIES
--- SELECT: Companion sees own assignments, Manager+ sees HQ assignments, Director+ sees all
-CREATE POLICY "Allow SELECT for assigned Companion" ON companion_student_map
-    FOR SELECT
-    USING (auth.uid() = companion_id);
-
-CREATE POLICY "Allow SELECT for HQ Managers and Directors" ON companion_student_map
+-- Combined SELECT: Companion sees own assignments, Manager+ sees HQ assignments, Director+ sees all
+CREATE POLICY "Allow SELECT for companion, managers, directors" ON companion_student_map
     FOR SELECT
     USING (
+        -- Assigned Companion
+        (select auth.uid()) = companion_id
+        OR
+        -- HQ Manager+ (level 50+) sees students in their HQ
         (fn_get_current_role_level() >= 50 AND EXISTS (
             SELECT 1 FROM students s
             WHERE s.user_id = companion_student_map.student_id
-            AND s.headquarter_id = ANY(fn_get_current_user_headquarter_ids())
+            AND s.headquarter_id = fn_get_current_hq_id()
         ))
         OR
+        -- Director+ (level 80+) sees all
         (fn_get_current_role_level() >= 80)
     );
 
@@ -42,7 +43,7 @@ CREATE POLICY "Allow INSERT for HQ Managers and Directors" ON companion_student_
             SELECT 1 FROM students s
             JOIN collaborators c ON c.user_id = companion_student_map.companion_id
             WHERE s.user_id = companion_student_map.student_id
-            AND s.headquarter_id = ANY(fn_get_current_user_headquarter_ids())
+            AND s.headquarter_id = fn_get_current_hq_id()
             AND c.headquarter_id = s.headquarter_id -- Ensure companion is also in the same HQ for manager insert
         ))
         OR
@@ -56,7 +57,7 @@ CREATE POLICY "Allow UPDATE for HQ Managers and Directors" ON companion_student_
         (fn_get_current_role_level() >= 50 AND EXISTS (
             SELECT 1 FROM students s
             WHERE s.user_id = companion_student_map.student_id
-            AND s.headquarter_id = ANY(fn_get_current_user_headquarter_ids())
+            AND s.headquarter_id = fn_get_current_hq_id()
         ))
         OR
         (fn_get_current_role_level() >= 80)
@@ -70,14 +71,12 @@ CREATE POLICY "Allow DELETE for HQ Managers and Directors" ON companion_student_
         (fn_get_current_role_level() >= 50 AND EXISTS (
             SELECT 1 FROM students s
             WHERE s.user_id = companion_student_map.student_id
-            AND s.headquarter_id = ANY(fn_get_current_user_headquarter_ids())
+            AND s.headquarter_id = fn_get_current_hq_id()
         ))
         OR
         (fn_get_current_role_level() >= 80)
     );
 
-
 -- Ensure updated_at is set
 CREATE TRIGGER handle_updated_at BEFORE UPDATE ON companion_student_map
   FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
-

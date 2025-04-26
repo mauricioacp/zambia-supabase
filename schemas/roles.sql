@@ -26,7 +26,7 @@ ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY roles_select_auth
 ON roles FOR SELECT
 TO authenticated
-USING (true); -- Using auth.role() = 'authenticated' is redundant as we specify TO authenticated
+USING (true);
 
 -- INSERT, UPDATE, DELETE: Allow only superadmin roles (>=100)
 CREATE POLICY roles_manage_superadmin
