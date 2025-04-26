@@ -1,0 +1,89 @@
+/* ---------- 1)  Generic audit table ---------- */
+CREATE TABLE audit_log (
+  id            bigserial PRIMARY KEY,
+  table_name    text,
+  action        text,          -- 'INSERT' | 'UPDATE' | 'DELETE'
+  record_id     uuid,
+  changed_by    uuid,
+  user_name     text,
+  changed_at    timestamptz DEFAULT now(),
+  diff          jsonb
+);
+
+/* ---------- 2)  Re-usable trigger function ---------- */
+CREATE OR REPLACE FUNCTION trg_audit()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  user_email text;
+BEGIN
+  -- Get the user's email for better readability in audit logs
+  SELECT email INTO user_email FROM auth.users WHERE id = auth.uid();
+
+  IF (TG_OP = 'DELETE') THEN
+    INSERT INTO audit_log(table_name, action, record_id, changed_by, user_name, diff)
+    VALUES (TG_TABLE_NAME, TG_OP, OLD.id, auth.uid(), user_email, to_jsonb(OLD));
+    RETURN OLD;
+  ELSIF (TG_OP = 'UPDATE') THEN
+    INSERT INTO audit_log(table_name, action, record_id, changed_by, user_name, diff)
+    VALUES (TG_TABLE_NAME, TG_OP, NEW.id, auth.uid(), user_email,
+            jsonb_build_object('old', to_jsonb(OLD), 'new', to_jsonb(NEW)));
+    RETURN NEW;
+  ELSE  -- INSERT
+    INSERT INTO audit_log(table_name, action, record_id, changed_by, user_name, diff)
+    VALUES (TG_TABLE_NAME, TG_OP, NEW.id, auth.uid(), user_email, to_jsonb(NEW));
+    RETURN NEW;
+  END IF;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION trg_audit() TO authenticated;
+
+/* ---------- 3)  Attach trigger to critical tables ---------- */
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['agreements','students','collaborators','headquarters','countries','seasons','workshops']
+  LOOP
+    EXECUTE format('
+      DROP TRIGGER IF EXISTS audit_%I ON %I;
+      CREATE TRIGGER audit_%I
+      AFTER INSERT OR UPDATE OR DELETE ON %I
+      FOR EACH ROW EXECUTE PROCEDURE trg_audit();',
+      t, t, t, t);
+  END LOOP;
+END;
+$$;
+
+/* ---------- 4) Create fn_audit_delete function ---------- */
+CREATE OR REPLACE FUNCTION fn_audit_delete()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  user_email text;
+BEGIN
+  -- Get the user's email for better readability in audit logs
+  SELECT email INTO user_email FROM auth.users WHERE id = auth.uid();
+  
+  -- Insert into audit_log with DELETE action
+  INSERT INTO audit_log(table_name, action, record_id, changed_by, user_name, diff)
+  VALUES (TG_TABLE_NAME, 'DELETE', OLD.id, auth.uid(), user_email, to_jsonb(OLD));
+  
+  RETURN OLD;
+END;
+$$;
+
+
+ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+
+-- INSERT, UPDATE, DELETE: Allow only high-level roles (>=90)
+CREATE POLICY only_high_level_crud_audit
+ON audit_log FOR ALL
+TO authenticated
+USING ( fn_get_current_role_level() >= 90 )
+WITH CHECK ( fn_get_current_role_level() >= 90 );
