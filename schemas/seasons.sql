@@ -29,24 +29,16 @@ FOR SELECT
 TO authenticated
 USING (true);
 
--- INSERT policy
-CREATE POLICY "Allow authenticated users to insert seasons"
+-- INSERT, UPDATE, DELETE policy: Allow managers for own HQ, directors+ for any HQ
+CREATE POLICY "Allow managers/directors to manage seasons"
 ON seasons
-FOR INSERT
+FOR ALL -- Applies to INSERT, UPDATE, DELETE
 TO authenticated
-WITH CHECK (true);
-
--- UPDATE policy
-CREATE POLICY "Allow authenticated users to update seasons"
-ON seasons
-FOR UPDATE
-TO authenticated
-USING (true)
-WITH CHECK (true);
-
--- DELETE policy
-CREATE POLICY "Allow authenticated users to delete seasons"
-ON seasons
-FOR DELETE
-TO authenticated
-USING (true);
+USING (
+  ( fn_get_current_role_level() >= 90 ) OR
+  ( fn_get_current_role_level() >= 70 AND fn_get_current_hq_id() = headquarter_id )
+)
+WITH CHECK (
+  ( fn_get_current_role_level() >= 90 ) OR
+  ( fn_get_current_role_level() >= 70 AND fn_get_current_hq_id() = headquarter_id )
+);

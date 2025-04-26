@@ -50,6 +50,7 @@ max_client_conn = 100
 # Supports glob patterns relative to supabase directory: "./schemas/*.sql"
 schema_paths = [
   "./schemas/extensions.sql",
+  "./schemas/rbac_helpers.sql",
   "./schemas/countries.sql",
   "./schemas/headquarters.sql",
   "./schemas/seasons.sql",
@@ -61,7 +62,11 @@ schema_paths = [
   "./schemas/workshops.sql",
   "./schemas/events.sql",
   "./schemas/processes.sql",
-  "./schemas/strapi_migrations.sql"
+  "./schemas/strapi_migrations.sql",
+  "./schemas/rbac_helpers.sql",
+  "./schemas/dashboard_functions.sql",
+  "./schemas/companion_student_map.sql",
+  "./schemas/facilitator_workshop_map.sql",
 ]
 
 [db.seed]

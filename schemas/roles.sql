@@ -20,32 +20,16 @@ CREATE INDEX idx_roles_code ON roles(code);
 -- Enable Row Level Security
 ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
 
--- Create policies for authenticated users
--- SELECT policy
-CREATE POLICY "Allow authenticated users to view roles"
-ON roles
-FOR SELECT
-TO authenticated
-USING (true);
+-- Policies for the roles table
 
--- INSERT policy
-CREATE POLICY "Allow authenticated users to insert roles"
-ON roles
-FOR INSERT
+-- SELECT: Allow any authenticated user to view roles
+CREATE POLICY roles_select_auth
+ON roles FOR SELECT
 TO authenticated
-WITH CHECK (true);
+USING (true); -- Using auth.role() = 'authenticated' is redundant as we specify TO authenticated
 
--- UPDATE policy
-CREATE POLICY "Allow authenticated users to update roles"
-ON roles
-FOR UPDATE
-TO authenticated
-USING (true)
-WITH CHECK (true);
-
--- DELETE policy
-CREATE POLICY "Allow authenticated users to delete roles"
-ON roles
-FOR DELETE
-TO authenticated
-USING (true);
+-- INSERT, UPDATE, DELETE: Allow only superadmin roles (>=100)
+CREATE POLICY roles_manage_superadmin
+ON roles FOR ALL -- Applies to INSERT, UPDATE, DELETE
+USING ( fn_get_current_role_level() >= 100 )
+WITH CHECK ( fn_get_current_role_level() >= 100 );

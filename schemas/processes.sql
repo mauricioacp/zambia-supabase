@@ -9,7 +9,7 @@ CREATE TABLE processes (
     status TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active',
     version TEXT,
     content JSONB,
-    applicable_roles TEXT[]
+    required_approvals UUID[]
 );
 
 CREATE TRIGGER handle_updated_at_processes
@@ -29,24 +29,9 @@ FOR SELECT
 TO authenticated
 USING (true);
 
--- INSERT policy
-CREATE POLICY "Allow authenticated users to insert processes"
-ON processes
-FOR INSERT
+-- INSERT, UPDATE, DELETE: Allow only high-level roles (>=90)
+CREATE POLICY processes_manage_high_level
+ON processes FOR ALL -- Applies to INSERT, UPDATE, DELETE
 TO authenticated
-WITH CHECK (true);
-
--- UPDATE policy
-CREATE POLICY "Allow authenticated users to update processes"
-ON processes
-FOR UPDATE
-TO authenticated
-USING (true)
-WITH CHECK (true);
-
--- DELETE policy
-CREATE POLICY "Allow authenticated users to delete processes"
-ON processes
-FOR DELETE
-TO authenticated
-USING (true);
+USING ( fn_get_current_role_level() >= 90 )
+WITH CHECK ( fn_get_current_role_level() >= 90 );

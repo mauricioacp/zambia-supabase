@@ -26,23 +26,23 @@ TO authenticated
 USING (true);
 
 -- INSERT policy
-CREATE POLICY "Allow authenticated users to insert countries"
+CREATE POLICY "Allow high-level users to insert countries"
 ON countries
 FOR INSERT
 TO authenticated
-WITH CHECK (true);
+WITH CHECK ( fn_get_current_role_level() >= 90 );
 
 -- UPDATE policy
-CREATE POLICY "Allow authenticated users to update countries"
+CREATE POLICY "Allow high-level users to update countries"
 ON countries
 FOR UPDATE
 TO authenticated
-USING (true)
-WITH CHECK (true);
+USING ( fn_get_current_role_level() >= 90 )
+WITH CHECK ( fn_get_current_role_level() >= 90 );
 
 -- DELETE policy
-CREATE POLICY "Allow authenticated users to delete countries"
+CREATE POLICY "Allow high-level users to delete countries"
 ON countries
 FOR DELETE
 TO authenticated
-USING (true);
+USING ( fn_get_current_role_level() >= 90 );

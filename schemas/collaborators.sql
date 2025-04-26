@@ -1,7 +1,7 @@
 -- Collaborators table definition
 CREATE TABLE collaborators (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NULL, -- Allow NULL for development
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     agreement_id UUID REFERENCES agreements(id) ON DELETE CASCADE,
     role_id UUID REFERENCES roles(id) ON DELETE RESTRICT,
     headquarter_id UUID REFERENCES headquarters(id) ON DELETE RESTRICT,
@@ -18,32 +18,47 @@ CREATE INDEX idx_collaborators_headquarter_id ON collaborators(headquarter_id);
 -- Enable Row Level Security
 ALTER TABLE collaborators ENABLE ROW LEVEL SECURITY;
 
--- Create policies for authenticated users
--- SELECT policy
-CREATE POLICY "Allow authenticated users to view collaborators"
-ON collaborators
-FOR SELECT
-TO authenticated
-USING (true);
+-- Policies for the collaborators table
 
--- INSERT policy
-CREATE POLICY "Allow authenticated users to insert collaborators"
-ON collaborators
-FOR INSERT
-TO authenticated
-WITH CHECK (true);
+-- SELECT: Own record, same HQ if level >= 50, any if level >= 90
+CREATE POLICY collaborators_select_self_hq_high
+ON collaborators FOR SELECT
+USING (
+    user_id = auth.uid() OR
+    (fn_get_current_role_level() >= 50 AND headquarter_id = fn_get_current_hq_id()) OR
+    fn_get_current_role_level() >= 90
+);
 
--- UPDATE policy
-CREATE POLICY "Allow authenticated users to update collaborators"
-ON collaborators
-FOR UPDATE
-TO authenticated
-USING (true)
-WITH CHECK (true);
+-- INSERT: Manager+ (>=50) for own HQ, Director+ (>=90) for any HQ
+CREATE POLICY collaborators_insert_manager_director
+ON collaborators FOR INSERT
+WITH CHECK (
+    (fn_get_current_role_level() >= 50 AND headquarter_id = fn_get_current_hq_id()) OR
+    fn_get_current_role_level() >= 90
+);
 
--- DELETE policy
-CREATE POLICY "Allow authenticated users to delete collaborators"
-ON collaborators
-FOR DELETE
-TO authenticated
-USING (true);
+-- UPDATE: Own record, manager+ (>=50) for own HQ, director+ (>=90) for any
+CREATE POLICY collaborators_update_self_manager_director
+ON collaborators FOR UPDATE
+USING (
+    user_id = auth.uid() OR
+    (fn_get_current_role_level() >= 50 AND headquarter_id = fn_get_current_hq_id()) OR
+    fn_get_current_role_level() >= 90
+)
+WITH CHECK (
+    ( -- If updating own record, no specific level check needed beyond USING clause
+      user_id = auth.uid()
+    ) OR
+    ( -- If updating within own HQ (and not own record), need level >= 50
+      fn_get_current_role_level() >= 50 AND headquarter_id = fn_get_current_hq_id()
+    ) OR
+    ( -- If updating any record (and potentially changing HQ), need level >= 90
+      fn_get_current_role_level() >= 90
+    )
+    -- Add specific field checks if needed, e.g., prevent changing role_id without higher permission
+);
+
+-- DELETE: Director+ (>=90) only
+CREATE POLICY general_director_can_delete_collaborators
+ON collaborators FOR DELETE
+USING ( fn_get_current_role_level() >= 90 );
