@@ -1,40 +1,48 @@
 -- Functions for dashboard statistics
 
--- Function to get global dashboard statistics (accessible only by high-level roles >= 90)
+-- Function to get global dashboard statistics (accessible only by roles >= 40)
 CREATE OR REPLACE FUNCTION get_global_dashboard_stats()
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER -- Allows bypassing RLS for counting, but we check permission first
+SECURITY DEFINER
 AS $$
 DECLARE
     current_role_level integer;
-    stats jsonb;
     total_headquarters bigint;
     total_collaborators bigint;
     total_students bigint;
     total_active_seasons bigint;
+    total_agreements bigint;
+    total_active_agreements bigint;
+    total_prospect_agreements bigint;
+    total_inactive_agreements bigint;
+    stats jsonb;
     total_workshops bigint;
     total_events bigint;
-    total_agreements bigint;
     agreements_prospect bigint;
     agreements_active bigint;
     agreements_inactive bigint;
     agreements_this_year bigint;
 BEGIN
-    -- Explicitly check the role level of the user *invoking* the function
     current_role_level := fn_get_current_role_level();
-
-    -- Check if the user has the required permission level (e.g., >= 90)
-    IF current_role_level < 90 THEN
+    IF current_role_level < 40 THEN
         RAISE EXCEPTION 'Insufficient privileges to access global dashboard statistics. Required level: 90, Your level: %', current_role_level;
-        -- Alternatively, return NULL or empty JSON: RETURN '{}'::jsonb;
     END IF;
 
-    -- If authorized, proceed to calculate stats (SECURITY DEFINER allows counting despite RLS)
-    SELECT COUNT(*) INTO total_headquarters FROM headquarters WHERE status = 'active'; -- Assuming an 'active' status exists or adjust as needed
-    SELECT COUNT(*) INTO total_collaborators FROM collaborators WHERE status = 'active'; -- Filter by active status
-    SELECT COUNT(*) INTO total_students FROM students WHERE status = 'active'; -- Filter by active status
+    SELECT COUNT(*) INTO total_headquarters FROM headquarters WHERE status = 'active';
+    SELECT COUNT(*) INTO total_collaborators FROM collaborators WHERE status = 'active';
+    SELECT COUNT(*) INTO total_students FROM students WHERE status = 'active';
     SELECT COUNT(*) INTO total_active_seasons FROM seasons WHERE status = 'active';
+    SELECT COUNT(*) INTO total_agreements FROM agreements;
+    SELECT COUNT(*) INTO total_active_agreements FROM agreements where status = 'active';
+    SELECT COUNT(*) INTO total_prospect_agreements FROM agreements where status = 'prospect';
+    SELECT COUNT(*) INTO total_inactive_agreements FROM agreements where status = 'inactive';
+
+
+
+
+
+
 
     -- Count workshops and events associated with active seasons
     SELECT COUNT(w.*) INTO total_workshops
@@ -143,25 +151,10 @@ BEGIN
     -- Student Counts and Distributions
     SELECT
         COUNT(*) INTO hq_active_students_count
-    FROM students WHERE headquarter_id = target_hq_id AND status = 'active';
+    FROM agreements WHERE headquarter_id = target_hq_id AND status = 'active';
 
-    SELECT jsonb_object_agg(age_group, count) INTO student_age_distribution
-    FROM (
-        SELECT CASE
-                   WHEN age < 18 THEN '<18'
-                   WHEN age BETWEEN 18 AND 24 THEN '18-24'
-                   WHEN age BETWEEN 25 AND 34 THEN '25-34'
-                   WHEN age BETWEEN 35 AND 44 THEN '35-44'
-                   WHEN age BETWEEN 45 AND 54 THEN '45-54'
-                   WHEN age >= 55 THEN '55+'
-                   ELSE 'Unknown'
-               END as age_group, COUNT(*) as count
-        FROM (SELECT date_part('year', age(birth_date)) as age FROM students WHERE headquarter_id = target_hq_id AND status = 'active' AND birth_date IS NOT NULL) ages
-        GROUP BY age_group
-    ) grouped_ages;
-
-    SELECT jsonb_object_agg(gender, count) INTO student_gender_distribution
-    FROM (SELECT COALESCE(gender, 'Unknown') as gender, COUNT(*) as count FROM students WHERE headquarter_id = target_hq_id AND status = 'active' GROUP BY gender) genders;
+    SELECT jsonb_object_agg(gender, count) INTO gender_distribution
+    FROM (SELECT COALESCE(gender, 'unknown') as gender, COUNT(*) as count FROM agreements WHERE headquarter_id = target_hq_id AND status = 'active' GROUP BY gender) genders;
 
     -- Collaborator Counts and Distributions
     SELECT
@@ -179,7 +172,7 @@ BEGIN
                    WHEN age >= 55 THEN '55+'
                    ELSE 'Unknown'
                END as age_group, COUNT(*) as count
-        FROM (SELECT date_part('year', age(birth_date)) as age FROM collaborators WHERE headquarter_id = target_hq_id AND status = 'active' AND birth_date IS NOT NULL) ages
+        FROM (SELECT date_part('year', age(birth_date)) as age FROM agreements WHERE headquarter_id = target_hq_id AND status = 'active' AND birth_date IS NOT NULL) ages
         GROUP BY age_group
     ) grouped_ages;
 

@@ -3,6 +3,7 @@
 /scripts/.env
 /scripts/credentials.json
 .idea
+.junie
 
 # windsurf rules
 .windsurfrules

@@ -62,8 +62,7 @@ async function checkTestUserExists(roleCode: string): Promise<string | null> {
 
   const { data, error } = await supabase
     .auth
-    .admin
-    .listUsers();
+    .admin.listUsers();
 
   if (error) {
     console.error("Error checking if user exists:", error.message);
@@ -209,26 +208,29 @@ async function manageTestUsers() {
       console.log(`Creating new test user for role ${role.name}...`);
       const { userId, email, password } = await createTestUser(role, defaultHqId, defaultSeasonId, agreementId);
 
-      const jwt = await generateJWT(email, password);
+      console.log(`Updating agreement ${agreementId} for user ${userId}...`);
 
-      // Update agreement to link user and activate
-      const { error: agUpdateErr } = await supabase
+      const {  error: agUpdateErr } = await supabase
         .from('agreements')
         .update({ user_id: userId, status: 'active' })
         .eq('id', agreementId);
-      if (agUpdateErr) console.error('Error updating agreement:', agUpdateErr.message);
+
+
+      if (agUpdateErr) {
+          console.error(`Error updating agreement ${agreementId}:`, agUpdateErr.message);
+          throw agUpdateErr;
+      }
 
       console.log("\n=== TEST USER CREDENTIALS ===");
       console.log(`Role: ${role.name}`);
       console.log(`Email: ${email}`);
       console.log(`Password: ${password}`);
-      console.log(`JWT: ${jwt}`);
       console.log("============================\n");
       credentials.push({
         role: role.name,
         email,
         password,
-        jwt,
+        jwt:'not-needed',
       });
     }
 

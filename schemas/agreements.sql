@@ -20,6 +20,8 @@ CREATE TABLE agreements (
     mailing_agreement BOOLEAN DEFAULT FALSE,
     age_verification BOOLEAN DEFAULT FALSE,
     signature_data TEXT,
+    birth_date DATE DEFAULT NOW()::date,
+    gender TEXT CHECK (gender IN ('male', 'female', 'other', 'unknown')) DEFAULT 'unknown',
     UNIQUE (user_id, season_id)
 );
 
