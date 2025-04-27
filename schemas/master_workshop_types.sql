@@ -4,7 +4,6 @@ CREATE TABLE master_workshop_types (
     id SERIAL PRIMARY KEY, -- Simple integer ID for the master type
     master_name TEXT NOT NULL UNIQUE, -- Official name from General Direction
     master_description TEXT,
-    -- Potentially add columns like 'target_audience', 'estimated_duration', etc.
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ
 );
