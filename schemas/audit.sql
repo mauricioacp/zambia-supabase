@@ -58,26 +58,6 @@ BEGIN
 END;
 $$;
 
-/* ---------- 4) Create fn_audit_delete function ---------- */
-CREATE OR REPLACE FUNCTION fn_audit_delete()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  user_email text;
-BEGIN
-  -- Get the user's email for better readability in audit logs
-  SELECT email INTO user_email FROM auth.users WHERE id = auth.uid();
-  
-  -- Insert into audit_log with DELETE action
-  INSERT INTO audit_log(table_name, action, record_id, changed_by, user_name, diff)
-  VALUES (TG_TABLE_NAME, 'DELETE', OLD.id, auth.uid(), user_email, to_jsonb(OLD));
-  
-  RETURN OLD;
-END;
-$$;
-
 
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 
@@ -85,5 +65,5 @@ ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 CREATE POLICY only_high_level_crud_audit
 ON audit_log FOR ALL
 TO authenticated
-USING ( fn_get_current_role_level() >= 90 )
-WITH CHECK ( fn_get_current_role_level() >= 90 );
+USING ( fn_is_general_director_or_higher() )
+WITH CHECK ( fn_is_general_director_or_higher() );

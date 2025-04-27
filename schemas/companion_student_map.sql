@@ -5,62 +5,59 @@ CREATE TABLE companion_student_map (
     student_id uuid NOT NULL REFERENCES students(user_id) ON DELETE CASCADE,
     created_at timestamptz DEFAULT now() NOT NULL,
     updated_at timestamptz,
-    -- PRIMARY KEY
     CONSTRAINT companion_student_map_pkey PRIMARY KEY (companion_id, student_id)
+    -- Todo each headquarter each season generates a map
 );
 
--- INDEXES
 CREATE INDEX idx_companion_student_map_companion_id ON companion_student_map(companion_id);
 CREATE INDEX idx_companion_student_map_student_id ON companion_student_map(student_id);
 
--- RLS
 ALTER TABLE companion_student_map ENABLE ROW LEVEL SECURITY;
 
--- POLICIES
--- Combined SELECT: Companion sees own assignments, Manager+ sees HQ assignments, Director+ sees all
+-- Combined SELECT: Collaborator+ level sees own assignments, Manager+ sees HQ assignments, Director+ sees all
 CREATE POLICY "Allow SELECT for companion, managers, directors" ON companion_student_map
     FOR SELECT
     USING (
         -- Assigned Companion
         (select auth.uid()) = companion_id
         OR
-        -- HQ Manager+ (level 50+) sees students in their HQ
-        (fn_get_current_role_level() >= 50 AND EXISTS (
+        -- HQ Manager+ sees students in their HQ
+        (fn_is_manager_assistant_or_higher() AND EXISTS (
             SELECT 1 FROM students s
             WHERE s.user_id = companion_student_map.student_id
             AND s.headquarter_id = fn_get_current_hq_id()
         ))
         OR
-        -- Director+ (level 80+) sees all
-        (fn_get_current_role_level() >= 80)
+        -- Konsejo+ sees all records
+        (fn_is_konsejo_member_or_higher())
     );
 
--- INSERT: Manager+ for own HQ, Director+ for any
+-- INSERT: Manager assistant+ for own HQ, Director+ for any
 CREATE POLICY "Allow INSERT for HQ Managers and Directors" ON companion_student_map
     FOR INSERT
     WITH CHECK (
-        (fn_get_current_role_level() >= 50 AND EXISTS (
+        (fn_is_manager_assistant_or_higher() AND EXISTS (
             SELECT 1 FROM students s
             JOIN collaborators c ON c.user_id = companion_student_map.companion_id
             WHERE s.user_id = companion_student_map.student_id
             AND s.headquarter_id = fn_get_current_hq_id()
-            AND c.headquarter_id = s.headquarter_id -- Ensure companion is also in the same HQ for manager insert
+            AND c.headquarter_id = s.headquarter_id
         ))
         OR
-        (fn_get_current_role_level() >= 80)
+      (fn_is_konsejo_member_or_higher())
     );
 
--- UPDATE: Manager+ for own HQ, Director+ for any
+-- UPDATE: Manager assistant+ for own HQ, Director+ for any
 CREATE POLICY "Allow UPDATE for HQ Managers and Directors" ON companion_student_map
     FOR UPDATE
     USING (
-        (fn_get_current_role_level() >= 50 AND EXISTS (
+        (fn_is_manager_assistant_or_higher() AND EXISTS (
             SELECT 1 FROM students s
             WHERE s.user_id = companion_student_map.student_id
             AND s.headquarter_id = fn_get_current_hq_id()
         ))
         OR
-        (fn_get_current_role_level() >= 80)
+        (fn_is_konsejo_member_or_higher())
     );
     -- WITH CHECK can reuse USING expression logic for UPDATE
 
@@ -68,13 +65,13 @@ CREATE POLICY "Allow UPDATE for HQ Managers and Directors" ON companion_student_
 CREATE POLICY "Allow DELETE for HQ Managers and Directors" ON companion_student_map
     FOR DELETE
     USING (
-        (fn_get_current_role_level() >= 50 AND EXISTS (
+        (fn_is_local_manager_or_higher() AND EXISTS (
             SELECT 1 FROM students s
             WHERE s.user_id = companion_student_map.student_id
             AND s.headquarter_id = fn_get_current_hq_id()
         ))
         OR
-        (fn_get_current_role_level() >= 80)
+        (fn_is_konsejo_member_or_higher())
     );
 
 -- Ensure updated_at is set

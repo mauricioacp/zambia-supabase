@@ -37,6 +37,7 @@ SELECT
     a.phone,
     a.name,
     a.last_name,
+    a.fts_name_lastname,
     a.address,
     a.signature_data,
     a.volunteering_agreement,
