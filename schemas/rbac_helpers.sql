@@ -28,6 +28,15 @@ AS $$
   SELECT COALESCE(raw_user_meta_data, '{}'::jsonb) FROM auth.users WHERE id = auth.uid();
 $$;
 
+
+--Is super admin
+CREATE OR REPLACE FUNCTION fn_is_super_admin()
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY INVOKER
+AS $$
+  SELECT fn_get_current_role_level() >= 100;
+$$;
+
 -- Function that returns true if role is General Director (95+) or higher
 CREATE OR REPLACE FUNCTION fn_is_general_director_or_higher()
 RETURNS boolean

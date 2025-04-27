@@ -14,35 +14,29 @@ CREATE TRIGGER handle_updated_at_countries
 
 CREATE INDEX idx_countries_code ON countries(code);
 
--- Enable Row Level Security
 ALTER TABLE countries ENABLE ROW LEVEL SECURITY;
 
--- Create policies for authenticated users
--- SELECT policy
 CREATE POLICY "Allow authenticated users to view countries"
 ON countries
 FOR SELECT
 TO authenticated
 USING (true);
 
--- INSERT policy
-CREATE POLICY "Allow high-level users to insert countries"
+CREATE POLICY "Allow super admin to insert countries"
 ON countries
 FOR INSERT
 TO authenticated
-WITH CHECK ( fn_get_current_role_level() >= 90 );
+WITH CHECK ( fn_is_super_admin() );
 
--- UPDATE policy
-CREATE POLICY "Allow high-level users to update countries"
+CREATE POLICY "Allow super admin to update countries"
 ON countries
 FOR UPDATE
 TO authenticated
-USING ( fn_get_current_role_level() >= 90 )
-WITH CHECK ( fn_get_current_role_level() >= 90 );
+USING ( fn_is_super_admin() )
+WITH CHECK ( fn_is_super_admin() );
 
--- DELETE policy
-CREATE POLICY "Allow high-level users to delete countries"
+CREATE POLICY "Allow super admin to delete countries"
 ON countries
 FOR DELETE
 TO authenticated
-USING ( fn_get_current_role_level() >= 90 );
+USING ( fn_is_super_admin() );

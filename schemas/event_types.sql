@@ -1,0 +1,53 @@
+-- schemas/event_types.sql
+
+CREATE TABLE event_types (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    title TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ
+);
+
+COMMENT ON TABLE event_types IS 'Defines the categories or types of events.';
+COMMENT ON COLUMN event_types.name IS 'Unique name for the event type (e.g., ''Companion Activity'', ''HQ Meeting'').';
+COMMENT ON COLUMN event_types.description IS 'Optional longer description of the event type.';
+COMMENT ON COLUMN event_types.title IS 'Title for the event type.';
+
+-- Seed initial event types (adjust as needed)
+INSERT INTO event_types (name, description, title)
+VALUES
+    ('Companion Activity', 'Sesiones de acompañamiento.', 'Sesión de acompañamiento'),
+    ('Training Session', 'Sesiones de formación.', 'Sesión de formación'),
+    ('Hq Meeting', 'Sesiones de reuniones de sedes.', 'Junta directiva de sede'),
+    ('General Meeting', 'Reuniones abiertas a múltiples sedes o anuncios generales.', 'Junta Akademia Internacional'),
+    ('Konsejo Meeting', 'Reuniones específicas del Konsejo.', 'Junta del Konsejo'),
+
+CREATE TRIGGER handle_updated_at_event_types
+    BEFORE UPDATE ON event_types
+    FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
+
+ALTER TABLE event_types ENABLE ROW LEVEL SECURITY;
+
+
+-- SELECT: Allow all authenticated users to view event types
+CREATE POLICY event_types_select_authenticated
+ON event_types FOR SELECT
+TO authenticated
+USING (true);
+
+-- INSERT: Restrict to Konsejo Member+ (or adjust level as needed)
+CREATE POLICY event_types_insert_high_level
+ON event_types FOR INSERT
+WITH CHECK ( fn_is_konsejo_member_or_higher() );
+
+-- UPDATE: Restrict to Konsejo Member+
+CREATE POLICY event_types_update_high_level
+ON event_types FOR UPDATE
+USING ( fn_is_konsejo_member_or_higher() )
+WITH CHECK ( fn_is_konsejo_member_or_higher() );
+
+-- DELETE: Restrict to Konsejo Member+ (or perhaps Super Admin)
+CREATE POLICY event_types_delete_high_level
+ON event_types FOR DELETE
+USING ( fn_is_konsejo_member_or_higher() );
