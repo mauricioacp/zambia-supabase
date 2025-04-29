@@ -28,15 +28,21 @@ USING (
     fn_is_general_director_or_higher()
 );
 
--- INSERT: Manager+ for own HQ, Director+ for any HQ
+-- INSERT: Manager+ for own HQ (only roles with level < 95), Director+ for any HQ/role
 CREATE POLICY collaborators_insert_manager_director
 ON collaborators FOR INSERT
 WITH CHECK (
-    (fn_is_local_manager_or_higher() AND fn_is_current_user_hq_equal_to(headquarter_id)) OR
-    fn_is_general_director_or_higher()
+    (
+        fn_is_local_manager_or_higher()
+        AND fn_is_current_user_hq_equal_to(headquarter_id)
+        AND (
+            SELECT level FROM roles r WHERE r.id = role_id
+        ) < 95
+    )
+    OR fn_is_general_director_or_higher()
 );
 
--- UPDATE: Own record, manager+ for own HQ, director+ for any
+-- UPDATE: Own record, manager+ for own HQ (only roles <95), director+ for any
 CREATE POLICY collaborators_update_self_manager_director
 ON collaborators FOR UPDATE
 USING (
@@ -45,15 +51,14 @@ USING (
     fn_is_general_director_or_higher()
 )
 WITH CHECK (
-    ( -- If updating own record, no specific level check needed beyond USING clause
-      user_id = (select auth.uid())
-    ) OR
-    ( -- If updating within own HQ (and not own record), need manager+ 
-      fn_is_local_manager_or_higher() AND fn_is_current_user_hq_equal_to(headquarter_id)
-    ) OR
-    ( -- If updating any record (and potentially changing HQ), need director+ 
-      fn_is_general_director_or_higher()
+    -- Self-updates allowed without additional checks (NEW row already belongs to user)
+    user_id = (select auth.uid())
+    OR (
+        fn_is_local_manager_or_higher()
+        AND fn_is_current_user_hq_equal_to(headquarter_id)
+        AND (SELECT level FROM roles r WHERE r.id = role_id) < 95
     )
+    OR fn_is_general_director_or_higher()
 );
 
 -- DELETE: Director+ only
