@@ -15,6 +15,7 @@ CREATE OR REPLACE FUNCTION trg_audit()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = ''
 AS $$
 DECLARE
   user_email text;
@@ -23,16 +24,16 @@ BEGIN
   SELECT email INTO user_email FROM auth.users WHERE id = auth.uid();
 
   IF (TG_OP = 'DELETE') THEN
-    INSERT INTO audit_log(table_name, action, record_id, changed_by, user_name, diff)
+    INSERT INTO public.audit_log(table_name, action, record_id, changed_by, user_name, diff)
     VALUES (TG_TABLE_NAME, TG_OP, OLD.id, auth.uid(), user_email, to_jsonb(OLD));
     RETURN OLD;
   ELSIF (TG_OP = 'UPDATE') THEN
-    INSERT INTO audit_log(table_name, action, record_id, changed_by, user_name, diff)
+    INSERT INTO public.audit_log(table_name, action, record_id, changed_by, user_name, diff)
     VALUES (TG_TABLE_NAME, TG_OP, NEW.id, auth.uid(), user_email,
             jsonb_build_object('old', to_jsonb(OLD), 'new', to_jsonb(NEW)));
     RETURN NEW;
   ELSE  -- INSERT
-    INSERT INTO audit_log(table_name, action, record_id, changed_by, user_name, diff)
+    INSERT INTO public.audit_log(table_name, action, record_id, changed_by, user_name, diff)
     VALUES (TG_TABLE_NAME, TG_OP, NEW.id, auth.uid(), user_email, to_jsonb(NEW));
     RETURN NEW;
   END IF;

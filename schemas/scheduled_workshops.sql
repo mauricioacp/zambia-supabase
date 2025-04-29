@@ -77,7 +77,7 @@ CREATE POLICY scheduled_workshops_update_policy
         fn_is_general_director_or_higher()
     )
     WITH CHECK (
-        (headquarter_id = OLD.headquarter_id AND season_id = OLD.season_id AND fn_is_manager_assistant_or_higher())
+        (NEW.headquarter_id = OLD.headquarter_id AND NEW.season_id = OLD.season_id AND fn_is_manager_assistant_or_higher())
         OR
         fn_is_general_director_or_higher()
         -- Trigger will validate facilitator role/HQ on change

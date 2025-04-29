@@ -201,6 +201,15 @@ VALUES (uuid_generate_v4(), 'superadmin', 'Super administrador',
        (uuid_generate_v4(), 'student', 'Alumno',
         'Estudiante registrado en el programa', 'active', 1);
 
+        -- Seed initial event types
+INSERT INTO event_types (name, description, title)
+VALUES
+    ('Companion Activity', 'Sesiones de acompañamiento.', 'Sesión de acompañamiento'),
+    ('Training Session', 'Sesiones de formación.', 'Sesión de formación'),
+    ('Hq Meeting', 'Sesiones de reuniones de sedes.', 'Junta directiva de sede'),
+    ('General Meeting', 'Reuniones abiertas a múltiples sedes o anuncios generales.', 'Junta Akademia Internacional'),
+    ('Konsejo Meeting', 'Reuniones específicas del Konsejo.', 'Junta del Konsejo');
+
 
 -- -- ==========================================
 -- -- 3. Seasons - Seed Data (todo seasons should have a manager id, so we need to create users -> collaborators -> seasons)

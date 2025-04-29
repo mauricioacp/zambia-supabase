@@ -62,7 +62,7 @@ USING (
 )
 WITH CHECK (
     -- Ensure the HQ isn't changed unless by Director+
-    (headquarter_id = OLD.headquarter_id AND season_id = OLD.season_id) -- Manager+ can only update within existing HQ/Season context
+    (NEW.headquarter_id = OLD.headquarter_id AND NEW.season_id = OLD.season_id) -- Manager+ can only update within existing HQ/Season context
     OR
     fn_is_general_director_or_higher() -- Director+ can change anything (potentially)
 );

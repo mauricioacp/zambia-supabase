@@ -52,11 +52,11 @@ USING (
 )
 WITH CHECK (
     -- Self-updates allowed without additional checks (NEW row already belongs to user)
-    user_id = (select auth.uid())
+    NEW.user_id = (select auth.uid())
     OR (
         fn_is_local_manager_or_higher()
-        AND fn_is_current_user_hq_equal_to(headquarter_id)
-        AND (SELECT level FROM roles r WHERE r.id = role_id) < 95
+        AND fn_is_current_user_hq_equal_to(NEW.headquarter_id)
+        AND (SELECT level FROM roles r WHERE r.id = NEW.role_id) < 95
     )
     OR fn_is_general_director_or_higher()
 );

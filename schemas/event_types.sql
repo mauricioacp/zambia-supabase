@@ -14,15 +14,6 @@ COMMENT ON COLUMN event_types.name IS 'Unique name for the event type (e.g., ''C
 COMMENT ON COLUMN event_types.description IS 'Optional longer description of the event type.';
 COMMENT ON COLUMN event_types.title IS 'Title for the event type.';
 
--- Seed initial event types (adjust as needed)
-INSERT INTO event_types (name, description, title)
-VALUES
-    ('Companion Activity', 'Sesiones de acompañamiento.', 'Sesión de acompañamiento'),
-    ('Training Session', 'Sesiones de formación.', 'Sesión de formación'),
-    ('Hq Meeting', 'Sesiones de reuniones de sedes.', 'Junta directiva de sede'),
-    ('General Meeting', 'Reuniones abiertas a múltiples sedes o anuncios generales.', 'Junta Akademia Internacional'),
-    ('Konsejo Meeting', 'Reuniones específicas del Konsejo.', 'Junta del Konsejo'),
-
 CREATE TRIGGER handle_updated_at_event_types
     BEFORE UPDATE ON event_types
     FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);

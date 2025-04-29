@@ -5,6 +5,7 @@ CREATE OR REPLACE FUNCTION get_global_dashboard_stats()
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = ''
 AS $$
 DECLARE
     current_role_level integer;
@@ -24,19 +25,19 @@ DECLARE
     agreements_inactive bigint;
     agreements_this_year bigint;
 BEGIN
-    current_role_level := fn_get_current_role_level();
+    current_role_level := public.fn_get_current_role_level();
     IF current_role_level < 40 THEN
         RAISE EXCEPTION 'Insufficient privileges to access global dashboard statistics. Required level: 90, Your level: %', current_role_level;
     END IF;
 
-    SELECT COUNT(*) INTO total_headquarters FROM headquarters WHERE status = 'active';
-    SELECT COUNT(*) INTO total_collaborators FROM collaborators WHERE status = 'active';
-    SELECT COUNT(*) INTO total_students FROM students WHERE status = 'active';
-    SELECT COUNT(*) INTO total_active_seasons FROM seasons WHERE status = 'active';
-    SELECT COUNT(*) INTO total_agreements FROM agreements;
-    SELECT COUNT(*) INTO total_active_agreements FROM agreements where status = 'active';
-    SELECT COUNT(*) INTO total_prospect_agreements FROM agreements where status = 'prospect';
-    SELECT COUNT(*) INTO total_inactive_agreements FROM agreements where status = 'inactive';
+    SELECT COUNT(*) INTO total_headquarters FROM public.headquarters WHERE status = 'active';
+    SELECT COUNT(*) INTO total_collaborators FROM public.collaborators WHERE status = 'active';
+    SELECT COUNT(*) INTO total_students FROM public.students WHERE status = 'active';
+    SELECT COUNT(*) INTO total_active_seasons FROM public.seasons WHERE status = 'active';
+    SELECT COUNT(*) INTO total_agreements FROM public.agreements;
+    SELECT COUNT(*) INTO total_active_agreements FROM public.agreements where status = 'active';
+    SELECT COUNT(*) INTO total_prospect_agreements FROM public.agreements where status = 'prospect';
+    SELECT COUNT(*) INTO total_inactive_agreements FROM public.agreements where status = 'inactive';
 
 
 
@@ -101,10 +102,11 @@ CREATE OR REPLACE FUNCTION get_headquarter_dashboard_stats(target_hq_id uuid)
 RETURNS jsonb -- Changed return type to jsonb for flexibility
 LANGUAGE plpgsql
 SECURITY DEFINER -- Allows bypassing RLS for counting, but we check permission first
+SET search_path = ''
 AS $$
 DECLARE
     current_role_level integer;
-    current_user_hq_id uuid; -- Changed from uuid[]
+    current_user_hq_id uuid;
     is_authorized boolean := false;
     stats jsonb;
     -- Counts
@@ -125,8 +127,8 @@ DECLARE
     hq_name text;
 BEGIN
     -- Get current user's role level and HQ ID
-    current_role_level := fn_get_current_role_level();
-    current_user_hq_id := fn_get_current_hq_id(); -- Use single HQ ID function
+    current_role_level := public.fn_get_current_role_level();
+    current_user_hq_id := public.fn_get_current_hq_id(); -- Use single HQ ID function
 
     -- Permission Check:
     -- Allow if user is Director+ (>=80) OR (Manager+ (>=50) AND target_hq_id is one of their HQs)
@@ -203,15 +205,14 @@ BEGIN
     FROM agreements
     WHERE headquarter_id = target_hq_id;
 
-    -- Removed calculation for average time from prospect to active due to missing activation_date
-    /* SELECT AVG(EXTRACT(EPOCH FROM (activation_date - prospect_date)) / 86400.0) -- 86400 seconds in a day
+    SELECT AVG(EXTRACT(EPOCH FROM (activation_date - prospect_date)) / 86400.0) -- 86400 seconds in a day
     INTO avg_days_prospect_to_active
     FROM agreements
     WHERE headquarter_id = target_hq_id
       AND prospect_date IS NOT NULL
       AND activation_date IS NOT NULL
       AND activation_date > prospect_date
-      AND status IN ('active', 'inactive'); */
+      AND status IN ('active', 'inactive'); 
 
     -- Construct JSON response
     stats := jsonb_build_object(

@@ -63,7 +63,7 @@ USING (
 )
 WITH CHECK (
     -- Ensure the HQ/Season isn't changed unless by Director+
-    (headquarter_id = OLD.headquarter_id AND season_id = OLD.season_id)
+    (NEW.headquarter_id = OLD.headquarter_id AND NEW.season_id = OLD.season_id)
     OR
     fn_is_general_director_or_higher()
 );

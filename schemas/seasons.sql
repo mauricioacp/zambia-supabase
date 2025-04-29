@@ -66,7 +66,7 @@ USING (
 )
 WITH CHECK (
     -- Check after update: HQ cannot be changed unless user is General Director+
-    (headquarter_id = OLD.headquarter_id AND fn_is_konsejo_member_or_higher()) -- Konsejo+ can update if HQ doesn't change
+    (NEW.headquarter_id = OLD.headquarter_id AND fn_is_konsejo_member_or_higher()) -- Konsejo+ can update if HQ doesn't change
     OR
     fn_is_general_director_or_higher() -- General Director+ can update and change HQ
 );

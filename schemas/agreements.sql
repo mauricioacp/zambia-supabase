@@ -136,9 +136,9 @@ WITH CHECK (
         OLD.user_id = auth.uid() AND
         NOT fn_is_general_director_or_higher() AND
         -- Must not change user_id, role_id, or headquarter_id
-        user_id = OLD.user_id AND
-        role_id = OLD.role_id AND
-        headquarter_id = OLD.headquarter_id
+        NEW.user_id = OLD.user_id AND
+        NEW.role_id = OLD.role_id AND
+        NEW.headquarter_id = OLD.headquarter_id
         -- Role level check is implicitly handled by role_id not changing,
         -- assuming the existing role was valid.
     )
@@ -150,10 +150,10 @@ WITH CHECK (
         NOT fn_is_general_director_or_higher() AND
         fn_is_current_user_hq_equal_to(OLD.headquarter_id) AND -- Check against OLD HQ
         -- Must not change user_id or headquarter_id
-        user_id = OLD.user_id AND
-        headquarter_id = OLD.headquarter_id AND
+        NEW.user_id = OLD.user_id AND
+        NEW.headquarter_id = OLD.headquarter_id AND
         -- Cannot assign role 95 or higher
-        role_id < 95
+        NEW.role_id < 95
     )
 );
 
