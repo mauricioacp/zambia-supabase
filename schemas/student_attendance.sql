@@ -37,13 +37,13 @@ CREATE POLICY student_attendance_select_policy
     USING (
         student_id = auth.uid() -- Student sees their own records
         OR
-        -- Facilitator sees attendance for workshops they facilitate
+        -- Facilitator sees attendance for scheduled_workshops they facilitate
         EXISTS (
             SELECT 1 FROM scheduled_workshops sw
             WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = auth.uid()
         )
         OR
-        -- Manager Assistant+ sees attendance for workshops in their HQ
+        -- Manager Assistant+ sees attendance for scheduled_workshops in their HQ
         (fn_is_manager_assistant_or_higher() AND EXISTS (
             SELECT 1 FROM scheduled_workshops sw
             WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.headquarter_id = fn_get_current_hq_id()
@@ -57,13 +57,13 @@ CREATE POLICY student_attendance_manage_policy
     ON student_attendance FOR ALL -- INSERT, UPDATE, DELETE
     TO authenticated
     USING (
-         -- Facilitator managing attendance for workshops they facilitate
+         -- Facilitator managing attendance for scheduled_workshops they facilitate
         EXISTS (
             SELECT 1 FROM scheduled_workshops sw
             WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = auth.uid()
         )
         OR
-         -- Manager Assistant+ managing attendance for workshops in their HQ
+         -- Manager Assistant+ managing attendance for scheduled_workshops in their HQ
         (fn_is_manager_assistant_or_higher() AND EXISTS (
             SELECT 1 FROM scheduled_workshops sw
             WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.headquarter_id = fn_get_current_hq_id()

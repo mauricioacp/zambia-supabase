@@ -6,7 +6,7 @@ CREATE TABLE processes (
     name TEXT NOT NULL,
     description TEXT,
     type TEXT,
-    status TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active',
+    status TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active', -- SUGGESTION: Consider ENUM for status for type safety.
     version TEXT,
     content JSONB,
     required_approvals UUID[]
@@ -16,7 +16,7 @@ CREATE TRIGGER handle_updated_at_processes
     BEFORE UPDATE ON processes
     FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
 
-CREATE INDEX idx_processes_status ON processes(status);
+CREATE INDEX idx_processes_status ON processes(status); -- Support status filtering
 
 -- Enable Row Level Security
 ALTER TABLE processes ENABLE ROW LEVEL SECURITY;

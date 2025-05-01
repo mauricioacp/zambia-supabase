@@ -11,7 +11,7 @@ CREATE TABLE scheduled_workshops (
     start_datetime TIMESTAMPTZ NOT NULL,
     end_datetime TIMESTAMPTZ NOT NULL,
     location_details TEXT, -- E-g online, at headquarters, outside...
-    status TEXT NOT NULL CHECK (status IN ('scheduled', 'completed', 'cancelled')) DEFAULT 'scheduled',
+    status TEXT NOT NULL CHECK (status IN ('scheduled', 'completed', 'cancelled')) DEFAULT 'scheduled', -- SUGGESTION: Consider ENUM for status for type safety.
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ,
     -- Ensure a specific HQ doesn't schedule the exact same local name twice in one season
@@ -20,7 +20,7 @@ CREATE TABLE scheduled_workshops (
     CONSTRAINT chk_workshop_times CHECK (end_datetime > start_datetime)
 );
 
-COMMENT ON TABLE scheduled_workshops IS 'Specific instances of workshops scheduled by a headquarter for a given season.';
+COMMENT ON TABLE scheduled_workshops IS 'Specific instances of scheduled_workshops scheduled by a headquarter for a given season.';
 COMMENT ON COLUMN scheduled_workshops.master_workshop_type_id IS 'Link to the master template for this workshop.';
 COMMENT ON COLUMN scheduled_workshops.headquarter_id IS 'The HQ that scheduled and is hosting this workshop instance.';
 COMMENT ON COLUMN scheduled_workshops.season_id IS 'The season during which this workshop instance takes place.';
@@ -30,11 +30,11 @@ COMMENT ON COLUMN scheduled_workshops.start_datetime IS 'Start date and time of 
 COMMENT ON COLUMN scheduled_workshops.end_datetime IS 'End date and time of the workshop instance.';
 COMMENT ON COLUMN scheduled_workshops.status IS 'The current status of the scheduled workshop instance.';
 
-CREATE INDEX idx_scheduled_workshops_master_type ON scheduled_workshops(master_workshop_type_id);
-CREATE INDEX idx_scheduled_workshops_hq ON scheduled_workshops(headquarter_id);
-CREATE INDEX idx_scheduled_workshops_season ON scheduled_workshops(season_id);
-CREATE INDEX idx_scheduled_workshops_facilitator ON scheduled_workshops(facilitator_id);
-CREATE INDEX idx_scheduled_workshops_start_time ON scheduled_workshops(start_datetime);
+CREATE INDEX idx_scheduled_workshops_master_type ON scheduled_workshops(master_workshop_type_id); -- Support filtering by type
+CREATE INDEX idx_scheduled_workshops_hq ON scheduled_workshops(headquarter_id); -- Support HQ-based queries
+CREATE INDEX idx_scheduled_workshops_season ON scheduled_workshops(season_id); -- Support season-based queries
+CREATE INDEX idx_scheduled_workshops_facilitator ON scheduled_workshops(facilitator_id); -- Support facilitator-based queries
+CREATE INDEX idx_scheduled_workshops_start_time ON scheduled_workshops(start_datetime); -- Support time-based queries
 
 CREATE TRIGGER handle_updated_at_scheduled_workshops
     BEFORE UPDATE ON scheduled_workshops
@@ -77,7 +77,7 @@ CREATE POLICY scheduled_workshops_update_policy
         fn_is_general_director_or_higher()
     )
     WITH CHECK (
-        (NEW.headquarter_id = OLD.headquarter_id AND NEW.season_id = OLD.season_id AND fn_is_manager_assistant_or_higher())
+        (headquarter_id = headquarter_id AND season_id = season_id AND fn_is_manager_assistant_or_higher())
         OR
         fn_is_general_director_or_higher()
         -- Trigger will validate facilitator role/HQ on change

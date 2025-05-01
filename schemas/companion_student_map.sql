@@ -1,14 +1,49 @@
 -- schemas/companion_student_map.sql
 
 CREATE TABLE companion_student_map (
-    companion_id uuid NOT NULL REFERENCES collaborators(user_id) ON DELETE CASCADE, -- Assuming companions are in collaborators table using user_id
+    companion_id uuid NOT NULL REFERENCES collaborators(user_id) ON DELETE CASCADE,
     student_id uuid NOT NULL REFERENCES students(user_id) ON DELETE CASCADE,
-    season_id uuid NOT NULL REFERENCES seasons(id) ON DELETE CASCADE, -- Added season_id
-    headquarter_id uuid NOT NULL REFERENCES headquarters(id) ON DELETE RESTRICT, -- Added headquarter_id
+    season_id uuid NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
+    headquarter_id uuid NOT NULL REFERENCES headquarters(id) ON DELETE RESTRICT, 
     created_at timestamptz DEFAULT now() NOT NULL,
     updated_at timestamptz,
-    CONSTRAINT companion_student_map_pkey PRIMARY KEY (companion_id, student_id, season_id)
+    CONSTRAINT companion_student_map_pkey PRIMARY KEY (companion_id, student_id, season_id) -- PK ensures uniqueness per season
 );
+
+-- TRIGGER: Enforce HQ consistency between mapping, companion, and student for the given season
+CREATE OR REPLACE FUNCTION check_companion_student_hq_consistency()
+RETURNS TRIGGER AS $$
+DECLARE
+    companion_hq_id UUID;
+    student_hq_id UUID;
+BEGIN
+    -- Get companion's HQ for the relevant season
+    SELECT a.headquarter_id INTO companion_hq_id
+    FROM agreements a
+    WHERE a.user_id = NEW.companion_id AND a.season_id = NEW.season_id
+    LIMIT 1;
+
+    -- Get student's HQ for the relevant season
+    SELECT a.headquarter_id INTO student_hq_id
+    FROM agreements a
+    WHERE a.user_id = NEW.student_id AND a.season_id = NEW.season_id
+    LIMIT 1;
+
+    IF NEW.headquarter_id IS DISTINCT FROM companion_hq_id THEN
+        RAISE EXCEPTION 'Companion HQ (%) does not match mapping HQ (%) for season %', companion_hq_id, NEW.headquarter_id, NEW.season_id;
+    END IF;
+    IF NEW.headquarter_id IS DISTINCT FROM student_hq_id THEN
+        RAISE EXCEPTION 'Student HQ (%) does not match mapping HQ (%) for season %', student_hq_id, NEW.headquarter_id, NEW.season_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY INVOKER;
+
+CREATE TRIGGER ensure_companion_student_hq_consistency
+    BEFORE INSERT OR UPDATE ON companion_student_map
+    FOR EACH ROW EXECUTE FUNCTION check_companion_student_hq_consistency();
+
+
 
 COMMENT ON TABLE companion_student_map IS 'Maps companions to students for a specific season and headquarter.';
 COMMENT ON COLUMN companion_student_map.season_id IS 'The season this mapping belongs to.';
@@ -18,6 +53,7 @@ CREATE INDEX idx_companion_student_map_companion_id ON companion_student_map(com
 CREATE INDEX idx_companion_student_map_student_id ON companion_student_map(student_id);
 CREATE INDEX idx_companion_student_map_season_id ON companion_student_map(season_id);
 CREATE INDEX idx_companion_student_map_headquarter_id ON companion_student_map(headquarter_id);
+CREATE INDEX idx_companion_student_map_agreement_id ON companion_student_map(headquarter_id, season_id);
 
 CREATE TRIGGER handle_updated_at BEFORE UPDATE ON companion_student_map
   FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
@@ -62,7 +98,7 @@ USING (
 )
 WITH CHECK (
     -- Ensure the HQ isn't changed unless by Director+
-    (NEW.headquarter_id = OLD.headquarter_id AND NEW.season_id = OLD.season_id) -- Manager+ can only update within existing HQ/Season context
+    (headquarter_id =headquarter_id AND season_id = season_id) -- Manager+ can only update within existing HQ/Season context
     OR
     fn_is_general_director_or_higher() -- Director+ can change anything (potentially)
 );

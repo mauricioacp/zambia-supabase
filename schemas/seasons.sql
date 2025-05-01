@@ -6,7 +6,7 @@ CREATE TABLE seasons (
     manager_id UUID NULL REFERENCES collaborators(user_id) ON DELETE SET NULL,
     start_date DATE,
     end_date DATE,
-    status TEXT CHECK (status IN ('active', 'inactive', 'completed')) DEFAULT 'inactive',
+    status TEXT CHECK (status IN ('active', 'inactive', 'completed')) DEFAULT 'inactive', -- SUGGESTION: Consider ENUM for status for type safety.
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT unique_season_name_per_hq UNIQUE (name, headquarter_id),
@@ -25,10 +25,10 @@ CREATE TRIGGER handle_updated_at_seasons
     BEFORE UPDATE ON seasons
     FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
 
-CREATE INDEX idx_seasons_headquarter_id ON seasons(headquarter_id);
-CREATE INDEX idx_seasons_manager_id ON seasons(manager_id);
-CREATE INDEX idx_seasons_status ON seasons(status); -- Added index on status
-CREATE INDEX idx_seasons_start_date ON seasons(start_date); -- Added index on start_date
+CREATE INDEX idx_seasons_headquarter_id ON seasons(headquarter_id); -- Support HQ-based queries
+CREATE INDEX idx_seasons_manager_id ON seasons(manager_id); -- Support manager-based queries
+CREATE INDEX idx_seasons_status ON seasons(status); -- Support status filtering
+CREATE INDEX idx_seasons_start_date ON seasons(start_date); -- Support date-based queries
 
 ALTER TABLE seasons ENABLE ROW LEVEL SECURITY;
 
@@ -66,7 +66,7 @@ USING (
 )
 WITH CHECK (
     -- Check after update: HQ cannot be changed unless user is General Director+
-    (NEW.headquarter_id = OLD.headquarter_id AND fn_is_konsejo_member_or_higher()) -- Konsejo+ can update if HQ doesn't change
+    (headquarter_id = headquarter_id AND fn_is_konsejo_member_or_higher()) -- Konsejo+ can update if HQ doesn't change
     OR
     fn_is_general_director_or_higher() -- General Director+ can update and change HQ
 );

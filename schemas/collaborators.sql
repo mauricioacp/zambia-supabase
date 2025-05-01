@@ -1,21 +1,33 @@
+CREATE TYPE collaborator_status AS ENUM ('active', 'inactive', 'standby');
+
 -- Collaborators table definition
 CREATE TABLE collaborators (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
-    agreement_id UUID REFERENCES agreements(id) ON DELETE RESTRICT,
-    role_id UUID REFERENCES roles(id) ON DELETE RESTRICT,
-    headquarter_id UUID REFERENCES headquarters(id) ON DELETE RESTRICT,
-    status TEXT CHECK (status IN ('active', 'inactive', 'standby')) DEFAULT 'inactive',
+    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT ,
+    headquarter_id UUID NOT NULL REFERENCES headquarters(id) ON DELETE RESTRICT,
+    status collaborator_status DEFAULT 'inactive',
     start_date DATE,
     end_date DATE
 );
 
 CREATE INDEX idx_collaborators_user_id ON collaborators(user_id);
-CREATE INDEX idx_collaborators_agreement_id ON collaborators(agreement_id);
 CREATE INDEX idx_collaborators_role_id ON collaborators(role_id);
 CREATE INDEX idx_collaborators_headquarter_id ON collaborators(headquarter_id);
 
 ALTER TABLE collaborators ENABLE ROW LEVEL SECURITY;
+
+-- trigger to ensure collaborator has a valid agreement
+CREATE OR REPLACE FUNCTION check_collaborator_has_agreement()
+    RETURNS TRIGGER AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM agreements WHERE user_id = NEW.user_id) THEN
+        RAISE EXCEPTION 'Collaborator must have a valid agreement';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 
 -- Policies for the collaborators table
 
@@ -28,16 +40,13 @@ USING (
     fn_is_general_director_or_higher()
 );
 
--- INSERT: Manager+ for own HQ (only roles with level < 95), Director+ for any HQ/role
+-- INSERT: Manager+ for own HQ, Director+ for any HQ/role
 CREATE POLICY collaborators_insert_manager_director
 ON collaborators FOR INSERT
 WITH CHECK (
     (
         fn_is_local_manager_or_higher()
         AND fn_is_current_user_hq_equal_to(headquarter_id)
-        AND (
-            SELECT level FROM roles r WHERE r.id = role_id
-        ) < 95
     )
     OR fn_is_general_director_or_higher()
 );
@@ -51,13 +60,12 @@ USING (
     fn_is_general_director_or_higher()
 )
 WITH CHECK (
-    -- Self-updates allowed without additional checks (NEW row already belongs to user)
-    NEW.user_id = (select auth.uid())
+    user_id = (select auth.uid())
     OR (
         fn_is_local_manager_or_higher()
-        AND fn_is_current_user_hq_equal_to(NEW.headquarter_id)
-        AND (SELECT level FROM roles r WHERE r.id = NEW.role_id) < 95
-    )
+        AND fn_is_current_user_hq_equal_to(headquarter_id)
+        AND (SELECT level FROM roles WHERE id = role_id) < 95
+        )
     OR fn_is_general_director_or_higher()
 );
 

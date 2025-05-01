@@ -15,6 +15,7 @@ COMMENT ON COLUMN master_workshop_types.master_description IS 'Detailed descript
 CREATE TRIGGER handle_updated_at_master_workshop_types
     BEFORE UPDATE ON master_workshop_types
     FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
+-- SUGGESTION: If status or similar field is added, consider ENUM for type safety.
 
 -- Enable Row Level Security
 ALTER TABLE master_workshop_types ENABLE ROW LEVEL SECURITY;

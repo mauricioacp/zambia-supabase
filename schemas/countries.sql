@@ -3,7 +3,7 @@ CREATE TABLE countries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     code TEXT NOT NULL UNIQUE,
-    status TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active',
+    status TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active', -- SUGGESTION: Consider ENUM for status for type safety.
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -12,7 +12,7 @@ CREATE TRIGGER handle_updated_at_countries
     BEFORE UPDATE ON countries
     FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
 
-CREATE INDEX idx_countries_code ON countries(code);
+CREATE INDEX idx_countries_code ON countries(code); -- Support fast lookup by code
 
 ALTER TABLE countries ENABLE ROW LEVEL SECURITY;
 

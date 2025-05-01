@@ -109,6 +109,8 @@ AS $$
   );
 $$;
 
+-- Updated to use FTS for name/last_name search and window function for count
+-- See review notes for rationale and performance considerations
 CREATE OR REPLACE FUNCTION get_agreements_with_role_paginated(
   p_limit INTEGER DEFAULT 10,
   p_offset INTEGER DEFAULT 0,

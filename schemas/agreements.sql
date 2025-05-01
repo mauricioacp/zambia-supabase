@@ -54,7 +54,6 @@ COMMENT ON COLUMN agreements.fts_name_lastname IS 'Full-text search vector for n
 CREATE OR REPLACE FUNCTION set_activation_date_on_update()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Check if status changed from 'prospect' to 'active' and activation_date is not already set
     IF OLD.status = 'prospect' AND NEW.status = 'active' AND NEW.activation_date IS NULL THEN
         NEW.activation_date := NOW();
     END IF;
@@ -76,14 +75,12 @@ CREATE TRIGGER handle_updated_at_agreements
     BEFORE UPDATE ON agreements
     FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
 
--- Trigger to set activation date
 CREATE TRIGGER handle_activation_date
     BEFORE UPDATE ON agreements
     FOR EACH ROW
-    WHEN (OLD.status IS DISTINCT FROM NEW.status) -- Only run if status potentially changes
+    WHEN (OLD.status IS DISTINCT FROM NEW.status)
     EXECUTE FUNCTION set_activation_date_on_update();
 
--- Trigger to update fts vector on name/last_name changes
 CREATE TRIGGER handle_fts_name_lastname_update
     BEFORE INSERT OR UPDATE OF name, last_name ON agreements
     FOR EACH ROW EXECUTE FUNCTION update_fts_name_lastname();
@@ -100,7 +97,6 @@ CREATE INDEX idx_agreements_fts_name_lastname ON agreements USING gin(fts_name_l
 
 ALTER TABLE agreements ENABLE ROW LEVEL SECURITY;
 
-
 -- SELECT: Own record, general director+ or local manager+ in same HQ
 CREATE POLICY agreements_select_own_hq_high
 ON agreements FOR SELECT
@@ -116,16 +112,43 @@ ON agreements FOR INSERT
 TO anon
 WITH CHECK ( status = 'prospect' );
 
--- UPDATE: Own record, general director+ or local manager+ in same HQ
--- IF updating own record and level is not admin cannot change role_id or headquarter_id, user_id
--- also cannot update role id to 95+ or higher
+
+-- Policy for self-update (non-GD+)
+CREATE POLICY agreements_update_self ON agreements FOR UPDATE
+USING ( user_id = auth.uid() AND NOT fn_is_general_director_or_higher() )
+WITH CHECK (
+    user_id = user_id AND
+    role_id = role_id AND
+    headquarter_id = headquarter_id
+);
+
+-- Policy for Manager+ update (non-GD+)
+CREATE POLICY agreements_update_by_manager ON agreements FOR UPDATE
+USING (
+    user_id <> auth.uid() AND
+    fn_is_local_manager_or_higher() AND
+    NOT fn_is_general_director_or_higher() AND
+    fn_is_current_user_hq_equal_to(headquarter_id)
+)
+WITH CHECK (
+    user_id = user_id AND
+    headquarter_id = headquarter_id AND
+    role_id = role_id -- no need to allow role changes here
+);
+
+-- Policy for GD+ update (covers self and others)
+CREATE POLICY agreements_update_by_director ON agreements FOR UPDATE
+USING ( fn_is_general_director_or_higher() )
+WITH CHECK ( fn_is_general_director_or_higher() );
+
+
 CREATE POLICY agreements_update_manager
 ON agreements FOR UPDATE
 TO authenticated
 USING (
-    OLD.user_id = auth.uid() OR                             -- User can target their own record
+    user_id = auth.uid() OR                             -- User can target their own record
     fn_is_general_director_or_higher() OR                   -- General Director+ can target any record
-    (fn_is_local_manager_or_higher() AND fn_is_current_user_hq_equal_to(OLD.headquarter_id)) -- Local Manager+ can target records in their own HQ
+    (fn_is_local_manager_or_higher() AND fn_is_current_user_hq_equal_to(headquarter_id)) -- Local Manager+ can target records in their own HQ
 )
 WITH CHECK (
     -- General Director+ is updating
@@ -133,27 +156,30 @@ WITH CHECK (
     OR
     -- User is updating their own record (and is NOT GD+)
     (
-        OLD.user_id = auth.uid() AND
+        user_id = auth.uid() AND
         NOT fn_is_general_director_or_higher() AND
         -- Must not change user_id, role_id, or headquarter_id
-        NEW.user_id = OLD.user_id AND
-        NEW.role_id = OLD.role_id AND
-        NEW.headquarter_id = OLD.headquarter_id
+        user_id = user_id AND
+        role_id = role_id AND
+        headquarter_id = headquarter_id
         -- Role level check is implicitly handled by role_id not changing,
         -- assuming the existing role was valid.
     )
     OR
     -- Local Manager+ is updating someone else in their HQ (and is NOT GD+)
     (
-        OLD.user_id <> auth.uid() AND
+        user_id <> auth.uid() AND
         fn_is_local_manager_or_higher() AND
         NOT fn_is_general_director_or_higher() AND
-        fn_is_current_user_hq_equal_to(OLD.headquarter_id) AND -- Check against OLD HQ
+        fn_is_current_user_hq_equal_to(headquarter_id) AND -- Check against OLD HQ
         -- Must not change user_id or headquarter_id
-        NEW.user_id = OLD.user_id AND
-        NEW.headquarter_id = OLD.headquarter_id AND
+        user_id = user_id AND
+        headquarter_id = headquarter_id AND
         -- Cannot assign role 95 or higher
-        NEW.role_id < 95
+        NOT EXISTS (
+            SELECT 1 FROM roles
+            WHERE id = role_id AND level >= 95
+        )
     )
 );
 

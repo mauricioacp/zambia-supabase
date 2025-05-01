@@ -11,6 +11,7 @@ CREATE TABLE audit_log (
 );
 
 /* ---------- 2)  Re-usable trigger function ---------- */
+-- SECURITY DEFINER: This function runs with elevated privileges. It is required for audit logging but must be maintained with care.
 CREATE OR REPLACE FUNCTION trg_audit()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -47,7 +48,7 @@ DO $$
 DECLARE
   t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['agreements','students','collaborators','headquarters','countries','seasons','workshops']
+  FOREACH t IN ARRAY ARRAY['agreements','students','collaborators','headquarters','countries','seasons','scheduled_workshops']
   LOOP
     EXECUTE format('
       DROP TRIGGER IF EXISTS audit_%I ON %I;
@@ -62,7 +63,7 @@ $$;
 
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 
--- INSERT, UPDATE, DELETE: Allow only high-level roles (>=90)
+-- INSERT, UPDATE, DELETE: Allow only General Director+ (95+) (see fn_is_general_director_or_higher)
 CREATE POLICY only_high_level_crud_audit
 ON audit_log FOR ALL
 TO authenticated

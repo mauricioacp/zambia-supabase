@@ -1,17 +1,15 @@
 -- Students table definition
 CREATE TABLE students (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
-    agreement_id UUID REFERENCES agreements(id) ON DELETE CASCADE,
-    headquarter_id UUID REFERENCES headquarters(id) ON DELETE RESTRICT,
-    season_id UUID REFERENCES seasons(id) ON DELETE RESTRICT,
-    enrollment_date DATE,
+    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    headquarter_id UUID NOT NULL REFERENCES headquarters(id) ON DELETE RESTRICT,
+    season_id UUID NOT NULL REFERENCES seasons(id) ON DELETE RESTRICT,
+    enrollment_date DATE NOT NULL,
     status TEXT CHECK (status IN ('active', 'prospect', 'graduated', 'inactive')) DEFAULT 'prospect',
     program_progress_comments JSONB
 );
 
 CREATE INDEX idx_students_user_id ON students(user_id);
-CREATE INDEX idx_students_agreement_id ON students(agreement_id);
 CREATE INDEX idx_students_headquarter_id ON students(headquarter_id);
 CREATE INDEX idx_students_season_id ON students(season_id);
 
@@ -27,9 +25,7 @@ USING (
     user_id = (select auth.uid()) OR
     fn_get_current_role_level() >= 80 OR
     headquarter_id = fn_get_current_hq_id()
-    -- TODO: Add join logic for assigned mentors (e.g., companions/facilitators)
-    -- Example (requires a mapping table like companion_student_map):
-    -- OR id IN (SELECT student_id FROM companion_student_map WHERE companion_id = fn_get_current_collaborator_id()) -- Need fn_get_current_collaborator_id() helper
+    -- todo
 );
 
 -- INSERT: Allow manager+ (>=40) to insert

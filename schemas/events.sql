@@ -10,7 +10,8 @@ CREATE TABLE events (
     start_datetime TIMESTAMPTZ,
     end_datetime TIMESTAMPTZ,
     data JSONB,
-    status TEXT CHECK (status IN ('draft', 'scheduled', 'completed', 'cancelled')) DEFAULT 'draft',
+    status TEXT CHECK (status IN ('draft', 'scheduled', 'completed', 'cancelled')) DEFAULT 'draft', -- SUGGESTION: Consider ENUM for status for type safety.
+
     event_type_id integer REFERENCES event_types(id) ON DELETE RESTRICT
 );
 
@@ -18,9 +19,9 @@ CREATE TRIGGER handle_updated_at_events
     BEFORE UPDATE ON events
     FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
 
-CREATE INDEX idx_events_headquarter_id ON events(headquarter_id);
-CREATE INDEX idx_events_status ON events(status);
-CREATE INDEX idx_events_start_datetime ON events(start_datetime);
+CREATE INDEX idx_events_headquarter_id ON events(headquarter_id); -- Support HQ-based queries
+CREATE INDEX idx_events_status ON events(status); -- Support status filtering
+CREATE INDEX idx_events_start_datetime ON events(start_datetime); -- Support time-based queries
 
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 
@@ -52,7 +53,7 @@ USING (
     fn_is_konsejo_member_or_higher()
 )WITH CHECK (
     -- Can only change HQ/Season if Konsejo Member+
-    (headquarter_id = OLD.headquarter_id AND season_id = OLD.season_id)
+    (headquarter_id = headquarter_id AND season_id = season_id)
     OR
     fn_is_konsejo_member_or_higher()
 );

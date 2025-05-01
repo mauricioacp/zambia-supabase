@@ -10,6 +10,8 @@ CREATE TABLE event_types (
 );
 
 COMMENT ON TABLE event_types IS 'Defines the categories or types of events.';
+CREATE INDEX idx_event_types_name ON event_types(name); -- Support fast lookup by name
+-- SUGGESTION: If status or similar field is added, consider ENUM for type safety.
 COMMENT ON COLUMN event_types.name IS 'Unique name for the event type (e.g., ''Companion Activity'', ''HQ Meeting'').';
 COMMENT ON COLUMN event_types.description IS 'Optional longer description of the event type.';
 COMMENT ON COLUMN event_types.title IS 'Title for the event type.';
