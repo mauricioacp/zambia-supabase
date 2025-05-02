@@ -71,7 +71,6 @@ schema_paths = [
   "./schemas/dashboard_functions.sql",
   "./schemas/strapi_migrations.sql",
   "./schemas/audit.sql",
-  "./schemas/*.sql",
 ]
 
 [db.seed]

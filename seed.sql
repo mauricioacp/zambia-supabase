@@ -215,15 +215,15 @@ VALUES
 -- -- 3. Seasons - Seed Data (todo seasons should have a manager id, so we need to create users -> collaborators -> seasons)
 -- -- ==========================================
 
--- -- Add one season for each headquarter
--- INSERT INTO seasons (id, name, headquarter_id, start_date, end_date, status)
--- SELECT uuid_generate_v4(),
---        headquarters.name || ' - Edición 2024-2025',
---        headquarters.id,
---        '2024-09-10',
---        '2025-05-15',
---        'active'
--- FROM headquarters;
+-- Add one season for each headquarter
+INSERT INTO seasons (id, name, headquarter_id, start_date, end_date, status)
+SELECT uuid_generate_v4(),
+       headquarters.name || ' - Edición 2024-2025',
+       headquarters.id,
+       '2024-09-10',
+       '2025-05-15',
+       'active'
+FROM headquarters;
 
 
 COMMIT;

@@ -20,7 +20,7 @@ CREATE INDEX idx_roles_code ON roles(code); -- Support fast lookup by code
 -- Enable Row Level Security
 ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
 
--- Policies for the roles table
+-- Policies for the role table
 
 -- SELECT: Allow any authenticated user to view roles
 CREATE POLICY roles_select_auth

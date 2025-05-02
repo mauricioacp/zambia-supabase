@@ -1,6 +1,6 @@
 /functions/strapi-migration/.env
 /functions/.env
-/scripts/.env
+/.env
 /scripts/credentials.json
 .idea
 .junie

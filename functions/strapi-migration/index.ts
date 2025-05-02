@@ -1,127 +1,135 @@
 import {
-  createClient,
-  SupabaseClient,
-} from "https://esm.sh/@supabase/supabase-js@2.39.8";
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { corsHeaders } from "../_shared/cors.ts";
-import { fetchAllStrapiAgreements } from "./services/strapiService.ts";
-import { preloadLookupTable } from "./services/supabaseService.ts";
-import { StrapiAgreement } from "./interfaces.ts";
-import "jsr:@std/dotenv/load";
-import { matchData } from "./services/mappingService.ts";
-import { 
-  getLastSuccessfulMigrationTimestamp, 
-  recordMigration 
-} from "./services/migrationService.ts";
+	createClient,
+	SupabaseClient,
+} from 'https://esm.sh/@supabase/supabase-js@2.39.8';
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { corsHeaders } from '../_shared/cors.ts';
+import { fetchAllStrapiAgreements } from './services/strapiService.ts';
+import { preloadLookupTable } from './services/supabaseService.ts';
+import { StrapiAgreement } from './interfaces.ts';
+import 'jsr:@std/dotenv/load';
+import { matchData } from './services/mappingService.ts';
+import {
+	getLastSuccessfulMigrationTimestamp,
+	recordMigration,
+} from './services/migrationService.ts';
 
 interface AppConfig {
-  supabaseClient: SupabaseClient;
-  strapiApiUrl: string;
-  strapiToken: string;
+	supabaseClient: SupabaseClient;
+	strapiApiUrl: string;
+	strapiToken: string;
 }
 
 const setupConfiguration = (authHeader: string): AppConfig => {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  const strapiApiUrl = Deno.env.get("STRAPI_API_URL");
-  const strapiToken = Deno.env.get("STRAPI_API_TOKEN");
+	const supabaseUrl = Deno.env.get('SUPABASE_URL');
+	const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+	const strapiApiUrl = Deno.env.get('STRAPI_API_URL');
+	const strapiToken = Deno.env.get('STRAPI_API_TOKEN');
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "Supabase URL or Service Anon Key environment variable is missing.",
-    );
-  }
-  if (!strapiApiUrl || !strapiToken) {
-    throw new Error(
-      "Strapi API URL or Token environment variable is missing.",
-    );
-  }
+	if (!supabaseUrl || !supabaseAnonKey) {
+		throw new Error(
+			'Supabase URL or Service Anon Key environment variable is missing.',
+		);
+	}
+	if (!strapiApiUrl || !strapiToken) {
+		throw new Error(
+			'Strapi API URL or Token environment variable is missing.',
+		);
+	}
 
-  const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: { Authorization: authHeader! },
-    },
-  });
+	const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+		global: {
+			headers: { Authorization: authHeader! },
+		},
+	});
 
-  console.log("Environment variables loaded and Supabase client created.");
+	console.log('Environment variables loaded and Supabase client created.');
 
-  return {
-    supabaseClient,
-    strapiApiUrl,
-    strapiToken,
-  };
+	return {
+		supabaseClient,
+		strapiApiUrl,
+		strapiToken,
+	};
 };
 
 Deno.serve(async (req) => {
-  try {
-    if (req.method === "OPTIONS") {
-      return new Response("ok", { headers: corsHeaders });
-    }
+	try {
+		if (req.method === 'OPTIONS') {
+			return new Response('ok', { headers: corsHeaders });
+		}
 
-    const authHeader = req.headers.get("Authorization");
+		const authHeader = req.headers.get('Authorization');
 
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "No autorizado" }),
-        { status: 401 },
-      );
-    }
+		if (!authHeader) {
+			return new Response(
+				JSON.stringify({ error: 'No autorizado' }),
+				{ status: 401 },
+			);
+		}
 
-    const { supabaseClient, strapiToken, strapiApiUrl } = setupConfiguration(
-      authHeader,
-    );
+		const { supabaseClient, strapiToken, strapiApiUrl } =
+			setupConfiguration(
+				authHeader,
+			);
 
-    const { strapiAgreements, headquartersSet, rolesSet } =
-      await connectToStrapi(strapiToken, strapiApiUrl, supabaseClient);
+		const { strapiAgreements, headquartersSet, rolesSet } =
+			await connectToStrapi(strapiToken, strapiApiUrl, supabaseClient);
 
-    const { rolesMap, headquartersMap } = await preloadSupabaseTableRecords(
-      supabaseClient,
-    );
+		const { rolesMap, headquartersMap } = await preloadSupabaseTableRecords(
+			supabaseClient,
+		);
 
-    const result = await matchData(
-      strapiAgreements,
-      headquartersSet,
-      rolesSet,
-      rolesMap,
-      headquartersMap,
-      supabaseClient,
-    );
+		const result = await matchData(
+			strapiAgreements,
+			headquartersSet,
+			rolesSet,
+			rolesMap,
+			headquartersMap,
+			supabaseClient,
+		);
 
-    console.log('Estadísticas de la migración:', result.statistics);
+		console.log('Estadísticas de la migración:', result.statistics);
 
-    if (result.success && strapiAgreements.length > 0) {
-      const timestamps = strapiAgreements.map(a => new Date(a.updatedAt || a.createdAt).toISOString());
-      const mostRecentTimestamp = timestamps.sort().pop();
+		if (result.success && strapiAgreements.length > 0) {
+			const timestamps = strapiAgreements.map((a) =>
+				new Date(a.updatedAt || a.createdAt).toISOString()
+			);
+			const mostRecentTimestamp = timestamps.sort().pop();
 
-      if (mostRecentTimestamp) {
-        const migrationRecord = {
-          last_migrated_at: mostRecentTimestamp,
-          status: 'success' as const,
-          records_processed: result.statistics.supabaseInserted || 0
-        };
+			if (mostRecentTimestamp) {
+				const migrationRecord = {
+					last_migrated_at: mostRecentTimestamp,
+					status: 'success' as const,
+					records_processed: result.statistics.supabaseInserted || 0,
+				};
 
-        const recordResult = await recordMigration(supabaseClient, migrationRecord);
-        console.log('Migration record saved:', recordResult ? 'Success' : 'Failed');
-      }
-    } else if (!result.success) {
-      const migrationRecord = {
-        last_migrated_at: new Date().toISOString(),
-        status: 'failed' as const,
-        records_processed: 0,
-        error_message: result.error || 'Unknown error'
-      };
+				const recordResult = await recordMigration(
+					supabaseClient,
+					migrationRecord,
+				);
+				console.log(
+					'Migration record saved:',
+					recordResult ? 'Success' : 'Failed',
+				);
+			}
+		} else if (!result.success) {
+			const migrationRecord = {
+				last_migrated_at: new Date().toISOString(),
+				status: 'failed' as const,
+				records_processed: 0,
+				error_message: result.error || 'Unknown error',
+			};
 
-      await recordMigration(supabaseClient, migrationRecord);
-      console.log('Failed migration recorded');
-    }
+			await recordMigration(supabaseClient, migrationRecord);
+			console.log('Failed migration recorded');
+		}
 
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: result.success ? 200 : 500,
-    });
+		return new Response(JSON.stringify(result), {
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			status: result.success ? 200 : 500,
+		});
 
-
-    /*  return new Response(csvData?.content, {
+		/*  return new Response(csvData?.content, {
         headers: {
           ...corsHeaders,
           'Content-Type': 'text/csv',
@@ -129,54 +137,62 @@ Deno.serve(async (req) => {
         },
         status: 200,
       });*/
-
-  } catch (error: unknown) {
-    return new Response(
-      String(error instanceof Error ? error.message : error),
-      { status: 500 },
-    );
-  }
+	} catch (error: unknown) {
+		return new Response(
+			String(error instanceof Error ? error.message : error),
+			{ status: 500 },
+		);
+	}
 });
 
-const connectToStrapi = async (strapiToken: string, strapiApiUrl: string, supabaseClient: SupabaseClient) => {
-  const lastMigratedAt = await getLastSuccessfulMigrationTimestamp(supabaseClient);
-  console.log(`Last successful migration timestamp: ${lastMigratedAt || 'None (fetching all records)'}`);
+const connectToStrapi = async (
+	strapiToken: string,
+	strapiApiUrl: string,
+	supabaseClient: SupabaseClient,
+) => {
+	const lastMigratedAt = await getLastSuccessfulMigrationTimestamp(
+		supabaseClient,
+	);
+	console.log(
+		`Last successful migration timestamp: ${
+			lastMigratedAt || 'None (fetching all records)'
+		}`,
+	);
 
+	const strapiAgreements: StrapiAgreement[] = await fetchAllStrapiAgreements(
+		strapiApiUrl,
+		strapiToken,
+		'/api/acuerdo-akademias',
+		lastMigratedAt,
+	);
 
-  const strapiAgreements: StrapiAgreement[] = await fetchAllStrapiAgreements(
-    strapiApiUrl,
-    strapiToken,
-    '/api/acuerdo-akademias',
-    lastMigratedAt
-  );
+	const rolesSet = new Set<string>();
+	const headquartersSet = new Set<string>();
+	strapiAgreements.forEach((agreement) => {
+		if (agreement.role) {
+			rolesSet.add(agreement.role.trim().toLowerCase());
+		}
+		if (agreement.headQuarters) {
+			headquartersSet.add(agreement.headQuarters.trim().toLowerCase());
+		}
+	});
 
-  const rolesSet = new Set<string>();
-  const headquartersSet = new Set<string>();
-  strapiAgreements.forEach((agreement) => {
-    if (agreement.role) {
-      rolesSet.add(agreement.role.trim().toLowerCase());
-    }
-    if (agreement.headQuarters) {
-      headquartersSet.add(agreement.headQuarters.trim().toLowerCase());
-    }
-  });
-
-  console.log(`Roles size in strapi: ${rolesSet.size}`);
-  console.log(`Headquarters size in strapi: ${headquartersSet.size}`);
-  return {
-    rolesSet,
-    headquartersSet,
-    strapiAgreements,
-  };
+	console.log(`Roles size in strapi: ${rolesSet.size}`);
+	console.log(`Headquarters size in strapi: ${headquartersSet.size}`);
+	return {
+		rolesSet,
+		headquartersSet,
+		strapiAgreements,
+	};
 };
 
 const preloadSupabaseTableRecords = async (supabaseClient: SupabaseClient) => {
-  const [rolesMap, headquartersMap] = await Promise.all([
-    preloadLookupTable(supabaseClient, "roles", "name"),
-    preloadLookupTable(supabaseClient, "headquarters", "name"),
-  ]);
-  return {
-    rolesMap,
-    headquartersMap,
-  };
+	const [rolesMap, headquartersMap] = await Promise.all([
+		preloadLookupTable(supabaseClient, 'roles', 'name'),
+		preloadLookupTable(supabaseClient, 'headquarters', 'name'),
+	]);
+	return {
+		rolesMap,
+		headquartersMap,
+	};
 };
