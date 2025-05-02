@@ -106,10 +106,10 @@ USING (
     (fn_is_local_manager_or_higher() AND fn_is_current_user_hq_equal_to(headquarter_id)) -- Manager + in same HQ
 );
 
--- INSERT (anon): Allow anonymous users to create prospects
+-- INSERT (anon): Allow anonymous and authenticated users to create prospects
 CREATE POLICY agreements_insert_anon_prospect
 ON agreements FOR INSERT
-TO anon
+TO anon, authenticated
 WITH CHECK ( status = 'prospect' );
 
 
