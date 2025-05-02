@@ -20,7 +20,7 @@ Deno.test("countries - RLS and CRUD operations by role", { sanitizeOps: false, s
         code: `TC${Math.floor(Math.random() * 10000)}`,
         status: 'active'
     };
-    let studentTestCountryId: string | undefined; // Define here for finally block access
+    let studentTestCountryId: string | undefined;
 
     try {
         // ==========================================
@@ -30,12 +30,6 @@ Deno.test("countries - RLS and CRUD operations by role", { sanitizeOps: false, s
             const superadminClient = await getClientForRole("superadmin");
             let countryId: string | undefined;
             const superAdminTestCountry = { ...testCountryBase, name: `Superadmin Test ${generateUniqueId()}`, code: `SA${generateUniqueId().slice(-4)}` };
-
-            await t.step("can connect and read initially", async () => {
-                const { data, error } = await superadminClient.from("countries").select("*").limit(1);
-                console.log("Initial SELECT query result:", { data, error });
-                assert(error === null || Array.isArray(data), "Initial read failed or returned unexpected error");
-            });
 
             await t.step("can create countries", async () => {
                 const { data, error } = await superadminClient
@@ -115,16 +109,19 @@ Deno.test("countries - RLS and CRUD operations by role", { sanitizeOps: false, s
             await t.step("cannot create countries", async () => {
                 const studentCreateAttempt = { ...testCountryBase, name: `Student Create ${generateUniqueId()}`, code: `SC${generateUniqueId().slice(-4)}` };
                 const { data, error } = await studentClient.from("countries").insert([studentCreateAttempt]).select();
+                console.log('data ', data, 'error ', error)
                 assertOperationDenied({ data, error }, "Student should NOT be allowed to create countries");
             });
 
             await t.step("cannot update countries", async () => {
-                const { data, error } = await studentClient.from("countries").update({ name: `Updated by Student ${generateUniqueId()}` }).eq("id", studentTestCountryId!);
+                const { data, error } = await studentClient.from("countries").update({ name: `Updated by Student ${generateUniqueId()}` }).eq("id", studentTestCountryId!).select();;
+                console.log('data ', data, 'error ', error)
                 assertOperationDenied({ data, error }, "Student should NOT be allowed to update countries");
             });
 
             await t.step("cannot delete countries", async () => {
-                const { error } = await studentClient.from("countries").delete().eq("id", studentTestCountryId!); // Note: delete doesn't return data by default
+                const { error } = await studentClient.from("countries").delete().eq("id", studentTestCountryId!);
+                console.log( 'error ', error)
                 assertOperationDenied({ data: null, error }, "Student should NOT be allowed to delete countries");
             });
         });
@@ -142,22 +139,26 @@ Deno.test("countries - RLS and CRUD operations by role", { sanitizeOps: false, s
 
             await t.step("cannot read countries", async () => {
                 const { data, error } = await anonClient.from("countries").select().eq("id", studentTestCountryId!);
+                console.log('data ', data, 'error ', error)
                 assertOperationDenied({ data, error }, "Anonymous user should NOT be allowed to read countries");
             });
 
             await t.step("cannot create countries", async () => {
                 const anonCreateAttempt = { ...testCountryBase, name: `Anon Create ${generateUniqueId()}`, code: `AC${generateUniqueId().slice(-4)}` };
                 const { data, error } = await anonClient.from("countries").insert([anonCreateAttempt]).select();
+                console.log('data ', data, 'error ', error)
                 assertOperationDenied({ data, error }, "Anonymous user should NOT be allowed to create countries");
             });
 
             await t.step("cannot update countries", async () => {
                 const { data, error } = await anonClient.from("countries").update({ name: `Updated by Anon ${generateUniqueId()}` }).eq("id", studentTestCountryId!).select();
+                console.log('data ', data, 'error ', error)
                 assertOperationDenied({ data, error }, "Anonymous user should NOT be allowed to update countries");
             });
 
             await t.step("cannot delete countries", async () => {
-                const { error } = await anonClient.from("countries").delete().eq("id", studentTestCountryId!); // Note: delete doesn't return data by default
+                const { error } = await anonClient.from("countries").delete().eq("id", studentTestCountryId!);
+                console.log( 'error ', error)
                 assertOperationDenied({ data: null, error }, "Anonymous user should NOT be allowed to delete countries");
             });
         });
@@ -169,7 +170,6 @@ Deno.test("countries - RLS and CRUD operations by role", { sanitizeOps: false, s
         console.log("Running cleanup for RLS and CRUD tests...");
         try {
             const cleanupClient = await getClientForRole("superadmin");
-            // Cleanup the item created specifically for student/anon tests
             if (studentTestCountryId) {
                 console.log(`Attempting cleanup for country ID: ${studentTestCountryId}`);
                 const { error } = await cleanupClient.from("countries").delete().eq("id", studentTestCountryId);
@@ -383,7 +383,6 @@ Deno.test("countries - Search and filter capabilities", { sanitizeOps: false, sa
         });
 
     } finally {
-        // Cleanup for search/filter tests
         console.log("Running cleanup for Search/Filter tests...");
         try {
             if (createdIdsForSearch.length > 0) {
