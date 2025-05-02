@@ -26,14 +26,13 @@ CREATE POLICY "Allow super admin to insert countries"
 ON countries
 FOR INSERT
 TO authenticated
-WITH CHECK ( fn_is_super_admin() );
+USING (fn_is_super_admin());
 
 CREATE POLICY "Allow super admin to update countries"
 ON countries
 FOR UPDATE
 TO authenticated
-USING ( fn_is_super_admin() )
-WITH CHECK ( fn_is_super_admin() );
+USING ( fn_is_super_admin() );
 
 CREATE POLICY "Allow super admin to delete countries"
 ON countries

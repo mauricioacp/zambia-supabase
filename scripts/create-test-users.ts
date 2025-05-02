@@ -126,20 +126,6 @@ async function createTestUser(
 	};
 }
 
-async function generateJWT(email: string, password: string): Promise<string> {
-	const { data, error } = await SUPA_CLIENT.auth.signInWithPassword({
-		email,
-		password,
-	});
-
-	if (error) {
-		console.error('Error generating JWT:', error.message);
-		throw error;
-	}
-
-	return data.session.access_token;
-}
-
 async function manageTestUsers() {
 	try {
 		console.log('Fetching active roles...');
@@ -212,12 +198,12 @@ async function manageTestUsers() {
 			}
 
 			console.log('\n=== TEST USER CREDENTIALS ===');
-			console.log(`Role: ${role.name}`);
+			console.log(`Role: ${role.code}`);
 			console.log(`Email: ${email}`);
 			console.log(`Password: ${password}`);
 			console.log('============================\n');
 			credentials.push({
-				role: role.name,
+				role: role.code,
 				email,
 				password,
 				jwt: 'not-needed',
