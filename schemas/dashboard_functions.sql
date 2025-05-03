@@ -715,12 +715,13 @@ CREATE OR REPLACE FUNCTION get_hq_agreement_ranking_this_year()
                   )
     LANGUAGE plpgsql
     SECURITY DEFINER -- Needs to see all agreements to rank HQs
+    SET search_path = ''
 AS $$
 DECLARE
     current_role_level integer;
 BEGIN
     -- Permission Check
-    current_role_level := fn_get_current_role_level();
+    current_role_level := public.fn_get_current_role_level();
     IF current_role_level < 80 THEN -- Let's use Director level 80
         RAISE EXCEPTION 'Insufficient privileges. Required level: 80, Your level: %', current_role_level;
     END IF;
@@ -737,8 +738,8 @@ BEGIN
                     ROUND((COUNT(a.id) FILTER (WHERE a.status = 'graduated')::numeric / COUNT(a.id)) * 100, 2)
                 ELSE 0
                 END as graduation_percentage
-        FROM agreements a
-                 JOIN headquarters h ON a.headquarter_id = h.id
+        FROM public.agreements a
+                 JOIN public.headquarters h ON a.headquarter_id = h.id
         WHERE a.created_at >= date_trunc('year', current_date)
         GROUP BY h.id, h.name
         ORDER BY agreements_count DESC;
@@ -753,6 +754,7 @@ CREATE OR REPLACE FUNCTION get_hq_agreement_breakdown(target_hq_id uuid)
     RETURNS jsonb
     LANGUAGE plpgsql
     SECURITY DEFINER -- Needs to query across users/roles potentially outside caller's direct view
+    SET search_path = ''
 AS $$
 DECLARE
     current_role_level integer;
@@ -760,7 +762,7 @@ DECLARE
     breakdown_data jsonb;
 BEGIN
     -- Get the role level and HQ ID of the user calling the function
-    SELECT fn_get_current_role_level(), fn_get_current_hq_id() -- Use single HQ ID function
+    SELECT public.fn_get_current_role_level(), public.fn_get_current_hq_id() -- Use single HQ ID function
     INTO current_role_level, current_user_hq_id;
 
     -- Permission Check: Allow if user is in the target HQ or role level is >= 70
@@ -776,8 +778,8 @@ BEGIN
                  r.name AS role_name,
                  a.status AS agreement_status,
                  COUNT(*) AS count
-             FROM agreements a
-                      JOIN roles r ON a.role_id = r.id -- Join directly to roles via a.role_id
+             FROM public.agreements a
+                      JOIN public.roles r ON a.role_id = r.id -- Join directly to roles via a.role_id
              WHERE a.headquarter_id = target_hq_id
              GROUP BY r.name, a.status
              ORDER BY r.name, a.status
@@ -795,13 +797,14 @@ CREATE OR REPLACE FUNCTION get_global_agreement_breakdown()
     RETURNS jsonb
     LANGUAGE plpgsql
     SECURITY DEFINER -- Needs to query across users/roles globally
+    SET search_path = ''
 AS $$
 DECLARE
     current_role_level integer;
     breakdown_data jsonb;
 BEGIN
     -- Permission Check
-    current_role_level := fn_get_current_role_level();
+    current_role_level := public.fn_get_current_role_level();
     IF current_role_level < 90 THEN -- Require Director level 90
         RAISE EXCEPTION 'Insufficient privileges. Required level: 90, Your level: %', current_role_level;
     END IF;
@@ -814,8 +817,8 @@ BEGIN
                  r.name AS role_name,
                  a.status AS agreement_status,
                  COUNT(*) AS count
-             FROM agreements a
-                      JOIN roles r ON a.role_id = r.id -- Join directly to roles via a.role_id
+             FROM public.agreements a
+                      JOIN public.roles r ON a.role_id = r.id -- Join directly to roles via a.role_id
              -- No headquarter filter for global view
              GROUP BY r.name, a.status
              ORDER BY r.name, a.status
@@ -1103,6 +1106,7 @@ CREATE OR REPLACE FUNCTION get_facilitator_multiple_roles_stats()
     RETURNS jsonb
     LANGUAGE plpgsql
     SECURITY DEFINER
+    SET search_path = ''
 AS $$
 DECLARE
     current_role_level integer;
@@ -1111,7 +1115,7 @@ DECLARE
     hq_stats jsonb;
 BEGIN
     -- Permission Check
-    current_role_level := fn_get_current_role_level();
+    current_role_level := public.fn_get_current_role_level();
     IF current_role_level < 80 THEN
         RAISE EXCEPTION 'Insufficient privileges. Required level: 80, Your level: %', current_role_level;
     END IF;
@@ -1122,8 +1126,8 @@ BEGIN
             a.user_id,
             COUNT(DISTINCT a.headquarter_id) as hq_count,
             COUNT(DISTINCT a.role_id) as role_count
-        FROM agreements a
-                 JOIN roles r ON a.role_id = r.id
+        FROM public.agreements a
+                 JOIN public.roles r ON a.role_id = r.id
         WHERE r.name = 'Facilitator' AND a.status = 'active'
         GROUP BY a.user_id
     )
@@ -1144,8 +1148,8 @@ BEGIN
             a.headquarter_id,
             a.user_id,
             COUNT(DISTINCT a.role_id) as role_count
-        FROM agreements a
-                 JOIN roles r ON a.role_id = r.id
+        FROM public.agreements a
+                 JOIN public.roles r ON a.role_id = r.id
         WHERE r.name = 'Facilitator' AND a.status = 'active'
         GROUP BY a.headquarter_id, a.user_id
     ),
@@ -1155,7 +1159,7 @@ BEGIN
                  h.name as hq_name,
                  COUNT(DISTINCT fhr.user_id) as total_facilitators,
                  COUNT(DISTINCT fhr.user_id) FILTER (WHERE fhr.role_count > 1) as facilitators_multiple_roles
-             FROM headquarters h
+             FROM public.headquarters h
                       LEFT JOIN facilitator_hq_roles fhr ON h.id = fhr.headquarter_id
              GROUP BY h.id, h.name
          )
@@ -1497,6 +1501,7 @@ CREATE OR REPLACE FUNCTION get_companion_effectiveness_metrics(target_hq_id uuid
     RETURNS jsonb
     LANGUAGE plpgsql
     SECURITY DEFINER
+    SET search_path = ''
 AS $$
 DECLARE
     current_role_level integer;
@@ -1505,8 +1510,8 @@ DECLARE
     result_data jsonb;
 BEGIN
     -- Get current user's role level and HQ ID
-    current_role_level := fn_get_current_role_level();
-    current_user_hq_id := fn_get_current_hq_id();
+    current_role_level := public.fn_get_current_role_level();
+    current_user_hq_id := public.fn_get_current_hq_id();
 
     -- Permission Check
     IF target_hq_id IS NULL THEN
@@ -1534,8 +1539,8 @@ BEGIN
                 csm.companion_id,
                 COUNT(DISTINCT csm.student_id) as assigned_students,
                 AVG(CASE WHEN sa.attendance_status = 'present' THEN 100.0 ELSE 0.0 END) as student_attendance_rate
-            FROM companion_student_map csm
-                     LEFT JOIN student_attendance sa ON csm.student_id = sa.student_id
+            FROM public.companion_student_map csm
+                     LEFT JOIN public.student_attendance sa ON csm.student_id = sa.student_id
             GROUP BY csm.headquarter_id, csm.companion_id
         ),
              hq_metrics AS (
@@ -1545,7 +1550,7 @@ BEGIN
                      COUNT(DISTINCT cm.companion_id) as active_companions,
                      AVG(cm.assigned_students) as avg_students_per_companion,
                      AVG(cm.student_attendance_rate) as avg_student_attendance_rate
-                 FROM headquarters h
+                 FROM public.headquarters h
                           LEFT JOIN companion_metrics cm ON h.id = cm.headquarter_id
                  GROUP BY h.id, h.name
              )
@@ -1570,9 +1575,9 @@ BEGIN
                 a.name || ' ' || a.last_name as companion_name,
                 COUNT(DISTINCT csm.student_id) as assigned_students,
                 AVG(CASE WHEN sa.attendance_status = 'present' THEN 100.0 ELSE 0.0 END) as student_attendance_rate
-            FROM companion_student_map csm
-                     JOIN agreements a ON csm.companion_id = a.user_id
-                     LEFT JOIN student_attendance sa ON csm.student_id = sa.student_id
+            FROM public.companion_student_map csm
+                     JOIN public.agreements a ON csm.companion_id = a.user_id
+                     LEFT JOIN public.student_attendance sa ON csm.student_id = sa.student_id
             WHERE csm.headquarter_id = target_hq_id
             GROUP BY csm.companion_id, companion_name
         ),
@@ -1606,7 +1611,7 @@ BEGIN
                                          )
             )
         INTO result_data
-        FROM headquarters h
+        FROM public.headquarters h
                  LEFT JOIN hq_summary hs ON TRUE
         WHERE h.id = target_hq_id;
     END IF;

@@ -28,18 +28,33 @@ ON roles FOR SELECT
 TO authenticated
 USING (true);
 
--- INSERT, UPDATE, DELETE: Allow only superadmin roles (>=100)
-CREATE POLICY roles_manage_superadmin
-ON roles FOR ALL -- Applies to INSERT, UPDATE, DELETE
+-- INSERT: Allow only superadmin roles (>=100)
+CREATE POLICY roles_insert_superadmin
+ON roles FOR INSERT
+TO authenticated
+WITH CHECK ( fn_get_current_role_level() >= 100 );
+
+-- UPDATE: Allow only superadmin roles (>=100)
+CREATE POLICY roles_update_superadmin
+ON roles FOR UPDATE
+TO authenticated
 USING ( fn_get_current_role_level() >= 100 )
 WITH CHECK ( fn_get_current_role_level() >= 100 );
 
+-- DELETE: Allow only superadmin roles (>=100)
+CREATE POLICY roles_delete_superadmin
+ON roles FOR DELETE
+TO authenticated
+USING ( fn_get_current_role_level() >= 100 );
+
 CREATE OR REPLACE FUNCTION fn_is_role_level_below(p_role_id UUID, p_level_threshold INT)
-    RETURNS BOOLEAN AS $$
+    RETURNS BOOLEAN 
+    SET search_path = ''
+    AS $$
     DECLARE
 role_level INT;
 BEGIN
-SELECT level INTO role_level FROM roles WHERE id = p_role_id;
+SELECT level INTO role_level FROM public.roles WHERE id = p_role_id;
 RETURN role_level < p_level_threshold;
 END;
     $$ LANGUAGE plpgsql STABLE;

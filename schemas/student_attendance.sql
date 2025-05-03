@@ -40,7 +40,7 @@ CREATE POLICY student_attendance_select_policy
         -- Facilitator sees attendance for scheduled_workshops they facilitate
         EXISTS (
             SELECT 1 FROM scheduled_workshops sw
-            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = auth.uid()
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = (select auth.uid())
         )
         OR
         -- Manager Assistant+ sees attendance for scheduled_workshops in their HQ
@@ -52,18 +52,38 @@ CREATE POLICY student_attendance_select_policy
         fn_is_general_director_or_higher() -- Director+ sees all
     );
 
--- INSERT/UPDATE/DELETE: Facilitator for own workshop, Manager Assistant+ for own HQ, Director+ for any
-CREATE POLICY student_attendance_manage_policy
-    ON student_attendance FOR ALL -- INSERT, UPDATE, DELETE
+-- INSERT: Facilitator for own workshop, Manager Assistant+ for own HQ, Director+ for any
+CREATE POLICY student_attendance_insert_policy
+    ON student_attendance FOR INSERT
     TO authenticated
-    USING (
-         -- Facilitator managing attendance for scheduled_workshops they facilitate
+    WITH CHECK (
+        -- Facilitator managing attendance for scheduled_workshops they facilitate
         EXISTS (
             SELECT 1 FROM scheduled_workshops sw
-            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = auth.uid()
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = (select auth.uid())
         )
         OR
-         -- Manager Assistant+ managing attendance for scheduled_workshops in their HQ
+        -- Manager Assistant+ managing attendance for scheduled_workshops in their HQ
+        (fn_is_manager_assistant_or_higher() AND EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.headquarter_id = fn_get_current_hq_id()
+        ))
+        OR
+        fn_is_general_director_or_higher() -- Director+ managing all
+    );
+
+-- UPDATE: Facilitator for own workshop, Manager Assistant+ for own HQ, Director+ for any
+CREATE POLICY student_attendance_update_policy
+    ON student_attendance FOR UPDATE
+    TO authenticated
+    USING (
+        -- Facilitator managing attendance for scheduled_workshops they facilitate
+        EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = (select auth.uid())
+        )
+        OR
+        -- Manager Assistant+ managing attendance for scheduled_workshops in their HQ
         (fn_is_manager_assistant_or_higher() AND EXISTS (
             SELECT 1 FROM scheduled_workshops sw
             WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.headquarter_id = fn_get_current_hq_id()
@@ -71,11 +91,11 @@ CREATE POLICY student_attendance_manage_policy
         OR
         fn_is_general_director_or_higher() -- Director+ managing all
     )
-     WITH CHECK (
-         -- Same check logic as USING for simplicity here
-         EXISTS (
+    WITH CHECK (
+        -- Same check logic as USING for simplicity here
+        EXISTS (
             SELECT 1 FROM scheduled_workshops sw
-            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = auth.uid()
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = (select auth.uid())
         )
         OR
         (fn_is_manager_assistant_or_higher() AND EXISTS (
@@ -84,4 +104,24 @@ CREATE POLICY student_attendance_manage_policy
         ))
         OR
         fn_is_general_director_or_higher()
+    );
+
+-- DELETE: Facilitator for own workshop, Manager Assistant+ for own HQ, Director+ for any
+CREATE POLICY student_attendance_delete_policy
+    ON student_attendance FOR DELETE
+    TO authenticated
+    USING (
+        -- Facilitator managing attendance for scheduled_workshops they facilitate
+        EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = (select auth.uid())
+        )
+        OR
+        -- Manager Assistant+ managing attendance for scheduled_workshops in their HQ
+        (fn_is_manager_assistant_or_higher() AND EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.headquarter_id = fn_get_current_hq_id()
+        ))
+        OR
+        fn_is_general_director_or_higher() -- Director+ managing all
     );

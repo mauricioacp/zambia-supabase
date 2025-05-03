@@ -13,7 +13,9 @@ CREATE TABLE facilitator_workshop_map (
 
 -- TRIGGER: Enforce consistency between facilitator, workshop, HQ, and season
 CREATE OR REPLACE FUNCTION check_facilitator_workshop_map_consistency()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER 
+SET search_path = ''
+AS $$
 DECLARE
     facilitator_hq_id UUID;
     workshop_hq_id UUID;
@@ -21,13 +23,13 @@ DECLARE
 BEGIN
     -- Get facilitator's HQ
     SELECT c.headquarter_id INTO facilitator_hq_id
-    FROM collaborators c
+    FROM public.collaborators c
     WHERE c.user_id = NEW.facilitator_id
     LIMIT 1;
 
     -- Get workshop's HQ and season
     SELECT w.headquarter_id, w.season_id INTO workshop_hq_id, workshop_season_id
-    FROM scheduled_workshops w
+    FROM public.scheduled_workshops w
     WHERE w.id = NEW.workshop_id
     LIMIT 1;
 

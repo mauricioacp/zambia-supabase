@@ -99,8 +99,6 @@ CREATE INDEX idx_agreements_headquarter_id ON agreements (headquarter_id);
 CREATE INDEX idx_agreements_season_id ON agreements (season_id);
 CREATE INDEX idx_agreements_role_id ON agreements (role_id);
 CREATE INDEX idx_agreements_email ON agreements (email);
-CREATE INDEX idx_agreements_document_number ON agreements (document_number);
-CREATE INDEX idx_agreements_phone ON agreements (phone);
 CREATE INDEX idx_agreements_name ON agreements (name);
 CREATE INDEX idx_agreements_last_name ON agreements (last_name);
 CREATE INDEX idx_agreements_fts_name_lastname ON agreements USING gin (fts_name_lastname);

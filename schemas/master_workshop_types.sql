@@ -25,8 +25,21 @@ CREATE POLICY master_workshop_types_select_auth
     ON master_workshop_types FOR SELECT
     TO authenticated USING (true);
 
-CREATE POLICY master_workshop_types_manage_superadmin
-    ON master_workshop_types FOR ALL -- INSERT, UPDATE, DELETE
+-- INSERT: Allow only super admins
+CREATE POLICY master_workshop_types_insert_superadmin
+    ON master_workshop_types FOR INSERT
     TO authenticated
-    USING ( fn_is_super_admin() ) -- Only Super Admins can manage master types
-    WITH CHECK ( fn_is_super_admin() );
+    WITH CHECK ( fn_is_general_director_or_higher() ); -- Only Super Admins can insert master types
+
+-- UPDATE: Allow only super admins
+CREATE POLICY master_workshop_types_update_superadmin
+    ON master_workshop_types FOR UPDATE
+    TO authenticated
+    USING ( fn_is_general_director_or_higher() ) -- Only Super Admins can update master types
+    WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- DELETE: Allow only super admins
+CREATE POLICY master_workshop_types_delete_superadmin
+    ON master_workshop_types FOR DELETE
+    TO authenticated
+    USING ( fn_is_general_director_or_higher() ); -- Only Super Admins can delete master types

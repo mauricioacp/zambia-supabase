@@ -19,9 +19,11 @@ ALTER TABLE collaborators ENABLE ROW LEVEL SECURITY;
 
 -- trigger to ensure collaborator has a valid agreement
 CREATE OR REPLACE FUNCTION check_collaborator_has_agreement()
-    RETURNS TRIGGER AS $$
+    RETURNS TRIGGER 
+    SET search_path = ''
+    AS $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM agreements WHERE user_id = NEW.user_id) THEN
+    IF NOT EXISTS (SELECT 1 FROM public.agreements WHERE user_id = NEW.user_id) THEN
         RAISE EXCEPTION 'Collaborator must have a valid agreement';
     END IF;
     RETURN NEW;

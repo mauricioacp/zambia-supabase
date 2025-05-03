@@ -25,10 +25,23 @@ ALTER TABLE headquarters ENABLE ROW LEVEL SECURITY;
 CREATE POLICY hq_select_auth
 ON headquarters FOR SELECT
 TO authenticated
-USING (true);
+USING (true OR fn_is_general_director_or_higher());
 
--- INSERT, UPDATE, DELETE: Allow only high-level roles (>=90)
-CREATE POLICY hq_manage_high_level
-ON headquarters FOR ALL -- Applies to INSERT, UPDATE, DELETE
-USING ( fn_get_current_role_level() >= 90 )
-WITH CHECK ( fn_get_current_role_level() >= 90 );
+-- INSERT: Allow only general directors or higher
+CREATE POLICY hq_insert_high_level
+ON headquarters FOR INSERT
+TO authenticated
+WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- UPDATE: Allow only general directors or higher
+CREATE POLICY hq_update_high_level
+ON headquarters FOR UPDATE
+TO authenticated
+USING ( fn_is_general_director_or_higher() )
+WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- DELETE: Allow only general directors or higher
+CREATE POLICY hq_delete_high_level
+ON headquarters FOR DELETE
+TO authenticated
+USING ( fn_is_general_director_or_higher() );

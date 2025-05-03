@@ -12,20 +12,22 @@ CREATE TABLE companion_student_map (
 
 -- TRIGGER: Enforce HQ consistency between mapping, companion, and student for the given season
 CREATE OR REPLACE FUNCTION check_companion_student_hq_consistency()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER 
+SET search_path = ''
+AS $$
 DECLARE
     companion_hq_id UUID;
     student_hq_id UUID;
 BEGIN
     -- Get companion's HQ for the relevant season
     SELECT a.headquarter_id INTO companion_hq_id
-    FROM agreements a
+    FROM public.agreements a
     WHERE a.user_id = NEW.companion_id AND a.season_id = NEW.season_id
     LIMIT 1;
 
     -- Get student's HQ for the relevant season
     SELECT a.headquarter_id INTO student_hq_id
-    FROM agreements a
+    FROM public.agreements a
     WHERE a.user_id = NEW.student_id AND a.season_id = NEW.season_id
     LIMIT 1;
 

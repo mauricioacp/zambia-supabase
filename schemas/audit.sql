@@ -63,9 +63,27 @@ $$;
 
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 
--- INSERT, UPDATE, DELETE: Allow only General Director+ (95+) (see fn_is_general_director_or_higher)
-CREATE POLICY only_high_level_crud_audit
-ON audit_log FOR ALL
+-- SELECT: Allow only General Director+ (95+)
+CREATE POLICY audit_select_high_level
+ON audit_log FOR SELECT
+TO authenticated
+USING ( fn_is_general_director_or_higher() );
+
+-- INSERT: Allow only General Director+ (95+)
+CREATE POLICY audit_insert_high_level
+ON audit_log FOR INSERT
+TO authenticated
+WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- UPDATE: Allow only General Director+ (95+)
+CREATE POLICY audit_update_high_level
+ON audit_log FOR UPDATE
 TO authenticated
 USING ( fn_is_general_director_or_higher() )
 WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- DELETE: Allow only General Director+ (95+)
+CREATE POLICY audit_delete_high_level
+ON audit_log FOR DELETE
+TO authenticated
+USING ( fn_is_general_director_or_higher() );

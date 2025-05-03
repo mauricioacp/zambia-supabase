@@ -29,9 +29,21 @@ FOR SELECT
 TO authenticated
 USING (true);
 
--- INSERT, UPDATE, DELETE: Allow only high-level roles (>=90)
-CREATE POLICY processes_manage_high_level
-ON processes FOR ALL -- Applies to INSERT, UPDATE, DELETE
+-- INSERT: Allow only high-level roles
+CREATE POLICY processes_insert_high_level
+ON processes FOR INSERT
 TO authenticated
-USING ( fn_get_current_role_level() >= 90 )
-WITH CHECK ( fn_get_current_role_level() >= 90 );
+WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- UPDATE: Allow only high-level roles
+CREATE POLICY processes_update_high_level
+ON processes FOR UPDATE
+TO authenticated
+USING ( fn_is_general_director_or_higher() )
+WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- DELETE: Allow only high-level roles
+CREATE POLICY processes_delete_high_level
+ON processes FOR DELETE
+TO authenticated
+USING ( fn_is_general_director_or_higher() );
