@@ -139,64 +139,90 @@ VALUES ('Webinar Septiembre', (SELECT id FROM countries WHERE code = 'I_WB')),
 -- ==========================================
 
 -- Seed Roles
-INSERT INTO roles (id, code, name, description, status)
-VALUES (uuid_generate_v4(), 'general_director', 'Director General',
+INSERT INTO roles (id, code, name, description, status, level)
+VALUES (uuid_generate_v4(), 'superadmin', 'Super administrador',
+        'Administrador super usuario', 'active', 100),
+       (uuid_generate_v4(), 'general_director', 'Director General',
         'Coordinador General de la Akademia a nivel internacional, gestiona el Konsejo y se mantiene en contacto con el Fundador',
-        'active'),
+        'active', 95),
+       (uuid_generate_v4(), 'executive_leader', 'Líder Ejecutivo',
+        'Lidera el equipo ejecutivo, analiza necesidades de gestión y optimiza procesos internos',
+        'active', 90),
        (uuid_generate_v4(), 'pedagogical_leader', 'Líder Pedagógico',
         'Lidera el equipo pedagógico, asesora a las Akademias en temas pedagógicos y vela por el cumplimiento del programa',
-        'active'),
+        'active', 90),
+       (uuid_generate_v4(), 'communication_leader', 'Líder de Comunicación',
+        'Lidera el equipo de comunicación, gestiona la estrategia de comunicación y la imagen corporativa',
+        'active', 90),
+       (uuid_generate_v4(), 'coordination_leader', 'Líder de Koordinación',
+        'Coordinador de todos los Koordinadores y su representante en el Konsejo',
+        'active', 90),
        (uuid_generate_v4(), 'innovation_leader', 'Líder de Innovación',
         'Lidera el equipo de innovación, impulsa nuevos proyectos y metodologías para mejorar el programa',
-        'active'),
-       (uuid_generate_v4(), 'communication_leader', 'Líder de Comunicación',
-        'Lidera el equipo de comunicación, gestiona la estrategia de comunicación y la imagen corporativa', 'active'),
-       (uuid_generate_v4(), 'executive_leader', 'Líder Ejecutivo',
-        'Lidera el equipo ejecutivo, analiza necesidades de gestión y optimiza procesos internos', 'active'),
+        'active', 80),
        (uuid_generate_v4(), 'community_leader', 'Líder de Komunidad',
-        'Lidera el equipo de Komunidad, genera vínculos entre miembros actuales y antiguos de La Akademia', 'active'),
-       (uuid_generate_v4(), 'coordination_leader', 'Líder de Koordinación',
-        'Coordinador de todos los Koordinadores y su representante en el Konsejo', 'active'),
+        'Lidera el equipo de Komunidad, genera vínculos entre miembros actuales y antiguos de La Akademia',
+        'active', 80),
+       (uuid_generate_v4(), 'utopik_foundation_user', 'Fundación Utópika',
+        'Usuario de la Fundación Utópika',
+        'active', 80),
        (uuid_generate_v4(), 'coordinator', 'Koordinador',
-        'Nexo entre el Konsejo y las Akademias locales asignadas. Apoyo y supervisión de sedes', 'active'),
+        'Nexo entre el Konsejo y las Akademias locales asignadas. Apoyo y supervisión de sedes',
+        'active', 80),
        (uuid_generate_v4(), 'legal_advisor', 'Asesor Legal',
-        'Lidera el Comité ético y asesora al Konsejo en temas legales', 'active'),
-       (uuid_generate_v4(), 'konsejo_member', 'Miembro del Konsejo de Dirección',
-        'Miembro del consejo de dirección con capacidad de toma de decisiones estratégicas', 'active'),
+        'Lidera el Comité ético y asesora al Konsejo en temas legales',
+        'active', 80),
+       (uuid_generate_v4(), 'konsejo_member',
+        'Miembro del Konsejo de Dirección',
+        'Miembro del consejo de dirección con capacidad de toma de decisiones estratégicas',
+        'active', 80),
        (uuid_generate_v4(), 'headquarter_manager', 'Director/a Local',
         'Responsable de la dirección general de una sede',
-        'active'),
-       (uuid_generate_v4(), 'pedagogical_manager', 'Director/a Pedagógico Local',
+        'active', 50),
+       (uuid_generate_v4(), 'pedagogical_manager',
+        'Director/a Pedagógico Local',
         'Responsable del área pedagógica de una sede',
-        'active'),
-       (uuid_generate_v4(), 'communication_manager', 'Director/a de Comunicación Local',
+        'active', 50),
+       (uuid_generate_v4(), 'communication_manager',
+        'Director/a de Comunicación Local',
         'Responsable del área de comunicación de una sede',
-        'active'),
-       (uuid_generate_v4(), 'companion_director', 'Director/a de Acompañantes Local',
+        'active', 50),
+       (uuid_generate_v4(), 'companion_director',
+        'Director/a de Acompañantes Local',
         'Responsable del área de acompañamiento de una sede',
-        'active'),
+        'active', 50),
        (uuid_generate_v4(), 'manager_assistant', 'Asistente a la dirección',
-        'Colaborador Asistente en la dirección de una sede', 'active'),
-       (uuid_generate_v4(), 'superadmin', 'Super administrador', 'Administrador super usuario', 'active'),
+        'Colaborador Asistente en la dirección de una sede', 'active', 30),
        (uuid_generate_v4(), 'companion', 'Acompañante',
-        'Persona que acompaña a los alumnos en su proceso de aprendizaje', 'active'),
-       (uuid_generate_v4(), 'facilitator', 'Facilitador', 'Facilitador de actividades y talleres', 'active'),
-       (uuid_generate_v4(), 'student', 'Alumno', 'Estudiante registrado en el programa', 'active');
+        'Persona que acompaña a los alumnos en su proceso de aprendizaje',
+        'active', 20),
+       (uuid_generate_v4(), 'facilitator', 'Facilitador',
+        'Facilitador de actividades y talleres', 'active', 20),
+       (uuid_generate_v4(), 'student', 'Alumno',
+        'Estudiante registrado en el programa', 'active', 1);
+
+        -- Seed initial event types
+INSERT INTO event_types (name, description, title)
+VALUES
+    ('Companion Activity', 'Sesiones de acompañamiento.', 'Sesión de acompañamiento'),
+    ('Training Session', 'Sesiones de formación.', 'Sesión de formación'),
+    ('Hq Meeting', 'Sesiones de reuniones de sedes.', 'Junta directiva de sede'),
+    ('General Meeting', 'Reuniones abiertas a múltiples sedes o anuncios generales.', 'Junta Akademia Internacional'),
+    ('Konsejo Meeting', 'Reuniones específicas del Konsejo.', 'Junta del Konsejo');
 
 
--- ==========================================
--- 3. Seasons - Seed Data
--- ==========================================
+-- -- ==========================================
+-- -- 3. Seasons - Seed Data (todo seasons should have a manager id, so we need to create users -> collaborators -> seasons)
+-- -- ==========================================
 
 -- Add one season for each headquarter
 INSERT INTO seasons (id, name, headquarter_id, start_date, end_date, status)
-SELECT
-    uuid_generate_v4(),
-    headquarters.name || ' - Edición 2024-2025',
-    headquarters.id,
-    '2024-09-10',
-    '2025-05-15',
-    'active'
+SELECT uuid_generate_v4(),
+       headquarters.name || ' - Edición 2024-2025',
+       headquarters.id,
+       '2024-09-10',
+       '2025-05-15',
+       'active'
 FROM headquarters;
 
 

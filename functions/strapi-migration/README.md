@@ -34,7 +34,6 @@ SUPABASE_ANON_KEY=<your-supabase-anon-key>
 ### Database Setup
 Ensure your Supabase database has the following tables:
 - `agreements` - Stores agreement data
-- `agreement_roles` - Junction table for agreement-role relationships
 - `roles` - Stores role definitions
 - `headquarters` - Stores headquarters definitions
 - `strapi_migrations` - Tracks migration history

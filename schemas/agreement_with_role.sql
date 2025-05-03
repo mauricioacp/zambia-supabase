@@ -1,49 +1,32 @@
 /*
- * Agreement with Roles View and Functions
+ * Agreement with Role View and Functions
  * 
- * This schema creates a view that joins agreements with their associated roles,
+ * This schema creates a view that joins agreements with their associated role,
  * and provides several functions to query this view efficiently.
  * 
  * The view:
- * - agreement_with_roles: Joins agreements with their roles as a JSONB array
+ * - agreement_with_role: Joins agreements with their role as a JSONB object
  * 
  * Functions:
- * - get_agreements_with_roles(): Returns all agreements with their roles
+ * - get_agreements_with_role(): Returns all agreements with their role
  * - get_agreements_by_role(role_name TEXT): Returns agreements filtered by role name
- * - get_agreements_by_role_id(role_id UUID): Returns agreements filtered by role ID
+ * - get_agreement_by_role_id(role_id UUID): Returns agreements filtered by role ID
  * - get_agreements_by_role_string(role_string TEXT): Returns agreements filtered by a string that matches role name or code
- * - get_agreements_with_roles_paginated(...): Returns paginated and filtered agreements with pagination metadata
- * - get_agreement_with_roles_by_id(p_agreement_id UUID): Returns a single agreement by ID
+ * - get_agreements_with_role_paginated(...): Returns paginated and filtered agreements with pagination metadata
+ * - get_agreement_with_role_by_id(p_agreement_id UUID): Returns a single agreement by ID
  * 
  * Usage examples:
- * - SELECT * FROM get_agreements_with_roles();
+ * - SELECT * FROM get_agreements_with_role();
  * - SELECT * FROM get_agreements_by_role('Student');
- * - SELECT * FROM get_agreements_by_role_id('123e4567-e89b-12d3-a456-426614174000');
+ * - SELECT * FROM get_agreement_by_role_id('123e4567-e89b-12d3-a456-426614174000');
  * - SELECT * FROM get_agreements_by_role_string('admin');
- * - SELECT get_agreements_with_roles_paginated(10, 0, 'active', NULL, NULL, 'john', NULL);
- * - SELECT get_agreement_with_roles_by_id('123e4567-e89b-12d3-a456-426614174000');
+ * - SELECT get_agreements_with_role_paginated(10, 0, 'active', NULL, NULL, 'john', NULL);
+ * - SELECT get_agreement_with_role_by_id('123e4567-e89b-12d3-a456-426614174000');
  */
 
--- Create view that joins agreements with their roles
-CREATE OR REPLACE VIEW agreement_with_roles AS
-WITH roles_array AS (
-    SELECT 
-        ar.agreement_id,
-        jsonb_agg(
-            jsonb_build_object(
-                'role_id', r.id,
-                'role_name', r.name,
-                'role_description', r.description
-            )
-        ) as roles
-    FROM 
-        agreement_roles ar
-    JOIN 
-        roles r ON ar.role_id = r.id
-    GROUP BY 
-        ar.agreement_id
-)
-SELECT 
+-- Create view that joins agreements with their single role
+CREATE OR REPLACE VIEW agreement_with_role AS
+SELECT
     a.id,
     a.user_id,
     a.headquarter_id,
@@ -54,6 +37,7 @@ SELECT
     a.phone,
     a.name,
     a.last_name,
+    a.fts_name_lastname,
     a.address,
     a.signature_data,
     a.volunteering_agreement,
@@ -62,77 +46,72 @@ SELECT
     a.age_verification,
     a.created_at,
     a.updated_at,
-    COALESCE(ra.roles, '[]'::jsonb) as roles
-FROM 
+    COALESCE(jsonb_build_object(
+        'role_id', r.id,
+        'role_name', r.name,
+        'role_description', r.description,
+        'role_code', r.code,
+        'role_level', r.level
+    ), '{}'::jsonb) AS role
+FROM
     agreements a
-LEFT JOIN 
-    roles_array ra ON a.id = ra.agreement_id;
+LEFT JOIN
+    roles r ON a.role_id = r.id;
 
 -- Set security for the view to be the same as the invoker
 -- This ensures the view respects the RLS policies of the underlying tables
-ALTER VIEW agreement_with_roles SET (security_invoker = true);
+ALTER VIEW agreement_with_role SET (security_invoker = true);
 
-CREATE OR REPLACE FUNCTION get_agreements_with_roles()
-RETURNS SETOF agreement_with_roles
+CREATE OR REPLACE FUNCTION get_agreements_with_role()
+RETURNS SETOF agreement_with_role
 LANGUAGE sql
 SECURITY INVOKER
 SET search_path = ''
 AS $$
-  SELECT * FROM public.agreement_with_roles;
+  SELECT * FROM public.agreement_with_role;
 $$;
 
 CREATE OR REPLACE FUNCTION get_agreements_by_role(role_name TEXT)
-RETURNS SETOF agreement_with_roles
+RETURNS SETOF agreement_with_role
 LANGUAGE sql
 SECURITY INVOKER
 SET search_path = ''
 AS $$
   SELECT awr.*
-  FROM public.agreement_with_roles awr
-  WHERE EXISTS (
-    SELECT 1
-    FROM jsonb_array_elements(awr.roles) as role_obj
-    WHERE role_obj->>'role_name' = role_name
-  );
+  FROM public.agreement_with_role awr
+  WHERE awr.role->>'role_name' = role_name;
 $$;
 
-CREATE OR REPLACE FUNCTION get_agreements_by_role_id(role_id UUID)
-RETURNS SETOF agreement_with_roles
+CREATE OR REPLACE FUNCTION get_agreement_by_role_id(role_id UUID)
+RETURNS SETOF agreement_with_role
 LANGUAGE sql
 SECURITY INVOKER
 SET search_path = ''
 AS $$
   SELECT awr.*
-  FROM public.agreement_with_roles awr
-  WHERE EXISTS (
-    SELECT 1
-    FROM jsonb_array_elements(awr.roles) as role_obj
-    WHERE role_obj->>'role_id' = role_id::text
-  );
+  FROM public.agreement_with_role awr
+  WHERE awr.role->>'role_id' = role_id::text;
 $$;
 
 CREATE OR REPLACE FUNCTION get_agreements_by_role_string(role_string TEXT)
-RETURNS SETOF agreement_with_roles
+RETURNS SETOF agreement_with_role
 LANGUAGE sql
 SECURITY INVOKER
 SET search_path = ''
 AS $$
   SELECT awr.*
-  FROM public.agreement_with_roles awr
-  WHERE EXISTS (
-    SELECT 1
-    FROM jsonb_array_elements(awr.roles) as role_obj
-    WHERE role_obj->>'role_name' ILIKE '%' || role_string || '%'
-  )
-  OR EXISTS (
-    SELECT 1
-    FROM jsonb_array_elements(awr.roles) as role_obj, public.roles r
-    WHERE role_obj->>'role_id' = r.id::text
-    AND r.code ILIKE '%' || role_string || '%'
+  FROM public.agreement_with_role awr
+  WHERE awr.role->>'role_name' ILIKE '%' || role_string || '%'
+  OR awr.role->>'role_id' IN (
+    SELECT r.id::text
+    FROM public.roles r
+    WHERE r.code ILIKE '%' || role_string || '%'
   );
 $$;
 
-CREATE OR REPLACE FUNCTION get_agreements_with_roles_paginated(
+-- Updated to use FTS for name/last_name search and window function for count
+-- See review notes for rationale and performance considerations
+CREATE OR REPLACE FUNCTION get_agreements_with_role_paginated(
   p_limit INTEGER DEFAULT 10,
   p_offset INTEGER DEFAULT 0,
   p_status TEXT DEFAULT NULL,
@@ -152,7 +131,7 @@ DECLARE
   v_data JSONB;
 BEGIN
   SELECT COUNT(*) INTO v_total
-  FROM public.agreement_with_roles awr
+  FROM public.agreement_with_role awr
   WHERE 
     (p_status IS NULL OR awr.status = p_status)
     AND (p_headquarter_id IS NULL OR awr.headquarter_id = p_headquarter_id)
@@ -162,16 +141,12 @@ BEGIN
          awr.last_name ILIKE '%' || p_search || '%' OR
          awr.email ILIKE '%' || p_search || '%' OR
          awr.document_number ILIKE '%' || p_search || '%')
-    AND (p_role_id IS NULL OR EXISTS (
-      SELECT 1
-      FROM jsonb_array_elements(awr.roles) as role_obj
-      WHERE role_obj->>'role_id' = p_role_id::text
-    ));
+    AND (p_role_id IS NULL OR awr.role->>'role_id' = p_role_id::text);
 
   SELECT jsonb_agg(to_jsonb(awr)) INTO v_data
   FROM (
     SELECT *
-    FROM public.agreement_with_roles awr
+    FROM public.agreement_with_role awr
     WHERE 
       (p_status IS NULL OR awr.status = p_status)
       AND (p_headquarter_id IS NULL OR awr.headquarter_id = p_headquarter_id)
@@ -181,11 +156,7 @@ BEGIN
            awr.last_name ILIKE '%' || p_search || '%' OR
            awr.email ILIKE '%' || p_search || '%' OR
            awr.document_number ILIKE '%' || p_search || '%')
-      AND (p_role_id IS NULL OR EXISTS (
-        SELECT 1
-        FROM jsonb_array_elements(awr.roles) as role_obj
-        WHERE role_obj->>'role_id' = p_role_id::text
-      ))
+      AND (p_role_id IS NULL OR awr.role->>'role_id' = p_role_id::text)
     ORDER BY awr.created_at DESC
     LIMIT p_limit
     OFFSET p_offset
@@ -212,7 +183,7 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION get_agreement_with_roles_by_id(p_agreement_id UUID)
+CREATE OR REPLACE FUNCTION get_agreement_with_role_by_id(p_agreement_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -222,7 +193,7 @@ DECLARE
   v_result JSONB;
 BEGIN
   SELECT to_jsonb(awr) INTO v_result
-  FROM public.agreement_with_roles awr
+  FROM public.agreement_with_role awr
   WHERE awr.id = p_agreement_id;
 
   IF v_result IS NULL THEN

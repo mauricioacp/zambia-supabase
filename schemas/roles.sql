@@ -4,7 +4,8 @@ CREATE TABLE roles (
     code TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     description TEXT,
-    status TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active',
+    status TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active', -- SUGGESTION: Consider ENUM for status for type safety.
+    level INTEGER NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     permissions JSONB DEFAULT '{}'
@@ -14,37 +15,46 @@ CREATE TRIGGER handle_updated_at_roles
     BEFORE UPDATE ON roles
     FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
 
-CREATE INDEX idx_roles_code ON roles(code);
+CREATE INDEX idx_roles_code ON roles(code); -- Support fast lookup by code
 
 -- Enable Row Level Security
 ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
 
--- Create policies for authenticated users
--- SELECT policy
-CREATE POLICY "Allow authenticated users to view roles"
-ON roles
-FOR SELECT
+-- Policies for the role table
+
+-- SELECT: Allow any authenticated user to view roles
+CREATE POLICY roles_select_auth
+ON roles FOR SELECT
 TO authenticated
 USING (true);
 
--- INSERT policy
-CREATE POLICY "Allow authenticated users to insert roles"
-ON roles
-FOR INSERT
+-- INSERT: Allow only superadmin roles (>=100)
+CREATE POLICY roles_insert_superadmin
+ON roles FOR INSERT
 TO authenticated
-WITH CHECK (true);
+WITH CHECK ( fn_get_current_role_level() >= 100 );
 
--- UPDATE policy
-CREATE POLICY "Allow authenticated users to update roles"
-ON roles
-FOR UPDATE
+-- UPDATE: Allow only superadmin roles (>=100)
+CREATE POLICY roles_update_superadmin
+ON roles FOR UPDATE
 TO authenticated
-USING (true)
-WITH CHECK (true);
+USING ( fn_get_current_role_level() >= 100 )
+WITH CHECK ( fn_get_current_role_level() >= 100 );
 
--- DELETE policy
-CREATE POLICY "Allow authenticated users to delete roles"
-ON roles
-FOR DELETE
+-- DELETE: Allow only superadmin roles (>=100)
+CREATE POLICY roles_delete_superadmin
+ON roles FOR DELETE
 TO authenticated
-USING (true);
+USING ( fn_get_current_role_level() >= 100 );
+
+CREATE OR REPLACE FUNCTION fn_is_role_level_below(p_role_id UUID, p_level_threshold INT)
+    RETURNS BOOLEAN 
+    SET search_path = ''
+    AS $$
+    DECLARE
+role_level INT;
+BEGIN
+SELECT level INTO role_level FROM public.roles WHERE id = p_role_id;
+RETURN role_level < p_level_threshold;
+END;
+    $$ LANGUAGE plpgsql STABLE;

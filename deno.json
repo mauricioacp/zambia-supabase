@@ -1,5 +1,37 @@
 {
   "imports": {
-
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.3",
+    "@std/path": "jsr:@std/path@^1.0.9",
+    "@std/assert": "jsr:@std/assert@1",
+    "@std/fs": "jsr:@std/fs@^1.0.17",
+    "supabase": "https://esm.sh/@supabase/supabase-js@2.39.8"
+  },
+  "compilerOptions": {
+    "strict": true
+  },
+  "tasks": {
+    "generate:test:users": "deno run --allow-net --allow-env --allow-read --allow-write scripts/create-test-users.ts --env=.env",
+    "generate:supabase:types": "deno run --allow-run=npx --allow-write=types --allow-read scripts/generate_supabase_types.ts",
+    "generate:dev:environment": "deno run --allow-run=npx --allow-net --allow-env --allow-read --allow-write scripts/regenerate-dev.ts",
+    "test": "deno test --allow-net --allow-env --allow-read --env=.env tests/*.ts"
+  },
+  "fmt": {
+    "useTabs": true,
+    "lineWidth": 80,
+    "indentWidth": 4,
+    "semiColons": true,
+    "singleQuote": true,
+    "proseWrap": "preserve",
+    "include": ["**/*.ts"]
+  },
+  "lint": {
+    "useTabs": true,
+    "lineWidth": 80,
+    "indentWidth": 4,
+    "semiColons": true,
+    "singleQuote": true,
+    "proseWrap": "preserve",
+    "include": ["**/*.ts"]
   }
+
 }
