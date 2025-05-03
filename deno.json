@@ -12,7 +12,7 @@
   "tasks": {
     "generate:test:users": "deno run --allow-net --allow-env --allow-read --allow-write scripts/create-test-users.ts --env=.env",
     "generate:supabase:types": "deno run --allow-run=npx --allow-write=types --allow-read scripts/generate_supabase_types.ts",
-    "generate:dev:environment": "deno run --allow-run=npx -allow-net --allow-env --allow-read --allow-write scripts/regenerate-dev.ts",
+    "generate:dev:environment": "deno run --allow-run=npx --allow-net --allow-env --allow-read --allow-write scripts/regenerate-dev.ts",
     "test": "deno test --allow-net --allow-env --allow-read --env=.env tests/*.ts"
   },
   "fmt": {
