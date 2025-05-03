@@ -49,7 +49,7 @@ CREATE POLICY scheduled_workshops_select_policy
     ON scheduled_workshops FOR SELECT
     TO authenticated
     USING (
-        facilitator_id = auth.uid()
+        facilitator_id = (select auth.uid())
         OR
         (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
         OR
