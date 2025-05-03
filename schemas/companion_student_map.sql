@@ -67,7 +67,7 @@ ALTER TABLE companion_student_map ENABLE ROW LEVEL SECURITY;
 CREATE POLICY select_companion_map
 ON companion_student_map FOR SELECT
 USING (
-    auth.uid() = companion_id
+    (select auth.uid()) = companion_id
     OR
     (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
     OR

@@ -78,7 +78,7 @@ ALTER TABLE facilitator_workshop_map ENABLE ROW LEVEL SECURITY;
 CREATE POLICY select_facilitator_map
 ON facilitator_workshop_map FOR SELECT
 USING (
-    auth.uid() = facilitator_id
+    (select auth.uid())= facilitator_id
     OR
     (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
     OR

@@ -35,7 +35,7 @@ CREATE POLICY student_attendance_select_policy
     ON student_attendance FOR SELECT
     TO authenticated
     USING (
-        student_id = auth.uid() -- Student sees their own records
+        student_id =(select auth.uid()) -- Student sees their own records
         OR
         -- Facilitator sees attendance for scheduled_workshops they facilitate
         EXISTS (

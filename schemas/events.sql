@@ -22,6 +22,8 @@ CREATE TRIGGER handle_updated_at_events
 CREATE INDEX idx_events_headquarter_id ON events(headquarter_id); -- Support HQ-based queries
 CREATE INDEX idx_events_status ON events(status); -- Support status filtering
 CREATE INDEX idx_events_start_datetime ON events(start_datetime); -- Support time-based queries
+CREATE INDEX idx_events_event_type_id ON events (event_type_id);
+CREATE INDEX idx_events_season_id ON events (season_id);
 
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 
