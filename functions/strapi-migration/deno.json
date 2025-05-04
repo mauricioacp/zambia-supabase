@@ -1,5 +1,6 @@
 {
   "imports": {
+    "@std/crypto": "jsr:@std/crypto@^1.0.4",
     "@supabase/supabase-js": "jsr:@supabase/supabase-js@^2.49.4"
   }
 }

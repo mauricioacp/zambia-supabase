@@ -1,4 +1,4 @@
-import {EXTERNAL_KEY} from "../_environment.ts";
+import {EXTERNAL_KEY, SUPER_PASSWORD} from "../_environment.ts";
 
 const commands = [
   ["supabase", "stop"],
@@ -50,11 +50,16 @@ const url = "http://127.0.0.1:54321/functions/v1/strapi-migration";
 
 console.log(`\nGET ${url}`);
 
+if (!SUPER_PASSWORD) {
+    console.warn("\nWARNING: SUPER_PASSWORD environment variable is not set.");
+}
+
 const response = await fetch(url, {
     method: "GET",
     headers: {
         Accept: "application/json",
         Authorization: `Bearer ${EXTERNAL_KEY}`,
+        "x-super-password": SUPER_PASSWORD || "",
     },
 });
 
@@ -71,6 +76,19 @@ const { code: genCode } = await genProcess.spawn().status;
 if (genCode !== 0) {
     console.error("Error in deno task generate:test:users");
     Deno.exit(genCode);
+}
+
+console.log("\n$ deno task generate:supabase:types");
+const genSupabaseTypesProcess = new Deno.Command("deno", {
+    args: ["task", "generate:supabase:types"],
+    stdout: "inherit",
+    stderr: "inherit",
+    stdin: "inherit",
+});
+const { code: genSupabaseTypesProcessCode } = await genSupabaseTypesProcess.spawn().status;
+if (genCode !== 0) {
+    console.error("Error in deno generate:supabase:types");
+    Deno.exit(genSupabaseTypesProcessCode);
 }
 
 console.log("\n¡Script completado!");

@@ -41,3 +41,4 @@ export const supabaseClient= createClient<Database>(
 );
 
 export const EXTERNAL_KEY = Deno.env.get('EXTERNAL_KEY');
+export const SUPER_PASSWORD = Deno.env.get('SUPER_PASSWORD');

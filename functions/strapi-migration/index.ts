@@ -13,12 +13,34 @@ import {
 	getLastSuccessfulMigrationTimestamp,
 	recordMigration,
 } from './services/migrationService.ts';
+import { timingSafeEqual } from "@std/crypto/timing-safe-equal";
+
 
 interface AppConfig {
 	supabaseClient: SupabaseClient;
 	strapiApiUrl: string;
 	strapiToken: string;
 }
+
+const verifyPassword = (password: string): boolean => {
+	const superPassword = Deno.env.get('SUPER_PASSWORD');
+
+	if (!superPassword) {
+		console.error('SUPER_PASSWORD environment variable is not set');
+		return false;
+	}
+
+	const providedPasswordBytes = new TextEncoder().encode(password);
+	const storedPasswordBytes = new TextEncoder().encode(superPassword);
+
+	if (providedPasswordBytes.length !== storedPasswordBytes.length) {
+		const dummyBytes = new Uint8Array(providedPasswordBytes.length);
+		timingSafeEqual(providedPasswordBytes, dummyBytes);
+		return false;
+	}
+
+	return timingSafeEqual(providedPasswordBytes, storedPasswordBytes);
+};
 
 const setupConfiguration = (authHeader: string): AppConfig => {
 	const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -58,12 +80,27 @@ Deno.serve(async (req) => {
 			return new Response('ok', { headers: corsHeaders });
 		}
 
-		const authHeader = req.headers.get('Authorization');
+		const superPasswordHeader = req.headers.get('x-super-password');
+		if (!superPasswordHeader || !verifyPassword(superPasswordHeader)) {
+			return new Response(
+				JSON.stringify({ 
+					error: 'Unauthorized: Invalid or missing credentials'
+				}),
+				{ 
+					status: 401, 
+					headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+				},
+			);
+		}
 
+		const authHeader = req.headers.get('Authorization');
 		if (!authHeader) {
 			return new Response(
 				JSON.stringify({ error: 'No autorizado' }),
-				{ status: 401 },
+				{ 
+					status: 401,
+					headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+				},
 			);
 		}
 
