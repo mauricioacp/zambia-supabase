@@ -1,7 +1,7 @@
 -- Events table definition
 CREATE TABLE events (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    title TEXT NOT NULL,
+    title VARCHAR(35) NOT NULL,
     description TEXT,
     headquarter_id UUID REFERENCES headquarters(id) ON DELETE RESTRICT,
     season_id UUID REFERENCES seasons(id) ON DELETE RESTRICT,

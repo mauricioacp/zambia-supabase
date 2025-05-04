@@ -2,8 +2,8 @@
 CREATE TABLE countries
 (
     id         UUID PRIMARY KEY                              DEFAULT uuid_generate_v4(),
-    name       TEXT NOT NULL,
-    code       TEXT NOT NULL UNIQUE,
+    name       VARCHAR(35) NOT NULL,
+    code       VARCHAR(20) NOT NULL UNIQUE,
     status     TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active', -- SUGGESTION: Consider ENUM for status for type safety.
     created_at TIMESTAMPTZ                                   DEFAULT NOW(),
     updated_at TIMESTAMPTZ                                   DEFAULT NOW()
