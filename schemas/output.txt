@@ -1,3 +1,757 @@
+
+================================================================================
+File: agreements.sql
+Size: 9.2 kB
+================================================================================
+
+-- Agreements table definition
+CREATE TABLE agreements
+(
+    id                         UUID PRIMARY KEY                                                       DEFAULT uuid_generate_v4(),
+    user_id                    UUID REFERENCES auth.users (id) ON DELETE RESTRICT,
+    headquarter_id             UUID REFERENCES headquarters (id) ON DELETE RESTRICT NOT NULL,
+    season_id                  UUID REFERENCES seasons (id)                         NOT NULL,
+    role_id                    UUID                                                 NOT NULL REFERENCES roles (id) ON DELETE RESTRICT,
+    status                     TEXT CHECK (status IN ('active', 'inactive', 'prospect', 'graduated')) DEFAULT 'prospect',
+    email                      TEXT                                                 NOT NULL,
+    document_number            TEXT,
+    phone                      TEXT,
+    created_at                 TIMESTAMPTZ                                                            DEFAULT NOW(),
+    updated_at                 TIMESTAMPTZ                                                            DEFAULT NOW(),
+    name                       TEXT,
+    last_name                  TEXT,
+    address                    TEXT,
+    activation_date            TIMESTAMPTZ,
+    volunteering_agreement     BOOLEAN                                                                DEFAULT FALSE,
+    ethical_document_agreement BOOLEAN                                                                DEFAULT FALSE,
+    mailing_agreement          BOOLEAN                                                                DEFAULT FALSE,
+    age_verification           BOOLEAN                                                                DEFAULT FALSE,
+    signature_data             TEXT,
+    birth_date                 DATE,
+    gender                     TEXT CHECK (gender IN ('male', 'female', 'other', 'unknown'))          DEFAULT 'unknown',
+    fts_name_lastname          tsvector,
+    UNIQUE (user_id, season_id)
+);
+
+COMMENT ON TABLE agreements IS 'Table containing user agreements for seasons';
+COMMENT ON COLUMN agreements.user_id IS 'User ID of the user';
+COMMENT ON COLUMN agreements.headquarter_id IS 'Headquarter ID of the headquarter';
+COMMENT ON COLUMN agreements.season_id IS 'Season ID of the season';
+COMMENT ON COLUMN agreements.role_id IS 'Role ID of the role';
+COMMENT ON COLUMN agreements.status IS 'Status of the agreement';
+COMMENT ON COLUMN agreements.email IS 'Email of the user';
+COMMENT ON COLUMN agreements.document_number IS 'Document number of the user';
+COMMENT ON COLUMN agreements.phone IS 'Phone of the user';
+COMMENT ON COLUMN agreements.created_at IS 'When the record was created';
+COMMENT ON COLUMN agreements.updated_at IS 'When the record was last updated';
+COMMENT ON COLUMN agreements.name IS 'Name of the user';
+COMMENT ON COLUMN agreements.last_name IS 'Last name of the user';
+COMMENT ON COLUMN agreements.address IS 'Address of the user';
+COMMENT ON COLUMN agreements.activation_date IS 'Activation date of the user when the responsible approves from prospect to active';
+COMMENT ON COLUMN agreements.volunteering_agreement IS 'Volunteering agreement of the user';
+COMMENT ON COLUMN agreements.ethical_document_agreement IS 'Ethical document agreement of the user';
+COMMENT ON COLUMN agreements.mailing_agreement IS 'Mailing agreement of the user';
+COMMENT ON COLUMN agreements.age_verification IS 'Age verification of the user';
+COMMENT ON COLUMN agreements.signature_data IS 'Signature data of the user';
+COMMENT ON COLUMN agreements.birth_date IS 'Birth date of the user';
+COMMENT ON COLUMN agreements.gender IS 'Gender of the user, male, other, female, unknown';
+COMMENT ON COLUMN agreements.fts_name_lastname IS 'Full-text search vector for name and last name';
+
+
+CREATE OR REPLACE FUNCTION set_activation_date_on_update()
+    RETURNS TRIGGER AS
+$$
+BEGIN
+    IF OLD.status = 'prospect' AND NEW.status = 'active' AND NEW.activation_date IS NULL THEN
+        NEW.activation_date := NOW();
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION update_fts_name_lastname()
+    RETURNS TRIGGER AS
+$$
+BEGIN
+    NEW.fts_name_lastname :=
+            to_tsvector('simple', coalesce(NEW.name, '') || ' ' || coalesce(NEW.last_name, ''));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER handle_updated_at_agreements
+    BEFORE UPDATE
+    ON agreements
+    FOR EACH ROW
+EXECUTE PROCEDURE moddatetime(updated_at);
+
+CREATE TRIGGER handle_activation_date
+    BEFORE UPDATE
+    ON agreements
+    FOR EACH ROW
+    WHEN (OLD.status IS DISTINCT FROM NEW.status)
+EXECUTE FUNCTION set_activation_date_on_update();
+
+CREATE TRIGGER handle_fts_name_lastname_update
+    BEFORE INSERT OR UPDATE OF name, last_name
+    ON agreements
+    FOR EACH ROW
+EXECUTE FUNCTION update_fts_name_lastname();
+
+CREATE INDEX idx_agreements_user_id ON agreements (user_id);
+CREATE INDEX idx_agreements_headquarter_id ON agreements (headquarter_id);
+CREATE INDEX idx_agreements_season_id ON agreements (season_id);
+CREATE INDEX idx_agreements_role_id ON agreements (role_id);
+CREATE INDEX idx_agreements_email ON agreements (email);
+CREATE INDEX idx_agreements_name ON agreements (name);
+CREATE INDEX idx_agreements_last_name ON agreements (last_name);
+CREATE INDEX idx_agreements_fts_name_lastname ON agreements USING gin (fts_name_lastname);
+
+ALTER TABLE agreements
+    ENABLE ROW LEVEL SECURITY;
+
+-- SELECT: Own record, general director+ or local manager+ in same HQ
+CREATE POLICY agreements_select_own_hq_high
+    ON agreements FOR SELECT
+    USING (
+    user_id = (select auth.uid()) OR -- Own record
+    fn_is_general_director_or_higher() OR
+    (fn_is_local_manager_or_higher() AND
+     fn_is_current_user_hq_equal_to(headquarter_id)) -- Manager + in same HQ
+    );
+
+-- INSERT (anon): Allow anonymous and authenticated users to create prospects
+CREATE POLICY agreements_insert_anon_prospect
+    ON agreements FOR INSERT
+    TO anon, authenticated
+    WITH CHECK (status = 'prospect');
+
+
+-- Drop the existing policy before creating the updated one
+DROP POLICY IF EXISTS agreements_update_permissions ON agreements;
+
+-- Consolidated policy for updating agreements based on user-role and target record
+CREATE POLICY agreements_update_permissions ON agreements FOR UPDATE
+    USING (
+    -- Determine which rows an updater can potentially target:
+    -- 1. Users can target their own record for update
+    user_id =(select auth.uid()) OR
+        -- 2. General Directors+ can target any record
+    fn_is_general_director_or_higher() OR
+        -- 3. Local Managers+ can target records within their own headquarter
+    (fn_is_local_manager_or_higher() AND fn_is_current_user_hq_equal_to(headquarter_id))
+    )
+    WITH CHECK (
+    -- Define the conditions the NEW row must satisfy based on the updater's role.
+
+    -- Universal Restrictions: Regardless of who is updating, these fields cannot be changed.
+    user_id = user_id AND
+    headquarter_id = headquarter_id AND
+    email = email AND -- Email cannot be changed via this table's update
+
+    -- Role-Specific Restrictions:
+    (
+        -- CASE 1: General Director+ is updating
+        -- They are subject only to the universal restrictions above.
+        fn_is_general_director_or_higher()
+        )
+        OR
+    (
+        -- CASE 2: User is updating their own record (and is NOT GD+)
+        user_id =(select auth.uid()) AND
+        NOT fn_is_general_director_or_higher() AND
+            -- Must also not change their own role_id (in addition to universal restrictions)
+        role_id = role_id
+        -- Can update other fields like status, phone, address, agreements, signature, etc.
+        )
+        OR
+    (
+        -- CASE 3: Local Manager+ is updating someone else in their HQ (and is NOT GD+).
+        -- Check current user is LM+ (not GD+) and is NOT the owner.
+        user_id <>(select auth.uid()) AND
+        fn_is_local_manager_or_higher() AND
+        NOT fn_is_general_director_or_higher() AND
+            -- Additional restriction: cannot assign roles with level 95 or higher.
+        NOT EXISTS (SELECT 1
+                    FROM public.roles -- Using EXISTS for clarity and performance
+                    WHERE id = role_id
+                      AND level >= 95)
+        )
+    );
+
+-- Update the comment to reflect the applied restrictions
+COMMENT ON POLICY agreements_update_permissions ON agreements IS
+    'Defines update permissions for the agreements table:
+    Universal Restrictions: user_id, headquarter_id, and email cannot be changed by any user via this policy.
+    Role-Specific Logic:
+    1. General Directors (or higher roles) can update any record, subject only to universal restrictions.
+    2. Regular users (non-GD+) can update their own agreement, but cannot change their user_id, role_id, headquarter_id, or email.
+    3. Local Managers (or higher, but non-GD+) can update records in their HQ (excluding themselves). They cannot change user_id, headquarter_id, or email, and cannot assign roles with level >= 95.';
+
+-- DELETE: General Director+ only
+CREATE POLICY agreements_delete_admin
+    ON agreements FOR DELETE
+    USING (fn_is_general_director_or_higher());
+
+
+================================================================================
+File: agreement_with_role.sql
+Size: 5.95 kB
+================================================================================
+
+/*
+ * 
+ * Functions:
+ * - get_agreements_with_role(): Returns all agreements with their role
+ * - get_agreements_by_role(role_name TEXT): Returns agreements filtered by role name
+ * - get_agreement_by_role_id(role_id UUID): Returns agreements filtered by role ID
+ * - get_agreements_by_role_string(role_string TEXT): Returns agreements filtered by a string that matches role name or code
+ * - get_agreements_with_role_paginated(...): Returns paginated and filtered agreements with pagination metadata
+ * - get_agreement_with_role_by_id(p_agreement_id UUID): Returns a single agreement by ID
+ * 
+ * Usage examples:
+ * - SELECT * FROM get_agreements_with_role();
+ * - SELECT * FROM get_agreements_by_role('Student');
+ * - SELECT * FROM get_agreement_by_role_id('123e4567-e89b-12d3-a456-426614174000');
+ * - SELECT * FROM get_agreements_by_role_string('admin');
+ * - SELECT get_agreements_with_role_paginated(10, 0, 'active', NULL, NULL, 'john', NULL);
+ * - SELECT get_agreement_with_role_by_id('123e4567-e89b-12d3-a456-426614174000');
+ */
+
+create view public.agreement_with_role as
+SELECT a.id,
+       a.user_id,
+       a.headquarter_id,
+       a.season_id,
+       a.status,
+       a.email,
+       a.document_number,
+       a.phone,
+       a.name,
+       a.last_name,
+       a.fts_name_lastname,
+       a.address,
+       a.signature_data,
+       a.volunteering_agreement,
+       a.ethical_document_agreement,
+       a.mailing_agreement,
+       a.age_verification,
+       a.created_at,
+       a.updated_at,
+       COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb) AS role
+FROM agreements a
+         LEFT JOIN roles r ON a.role_id = r.id;
+
+ALTER VIEW agreement_with_role SET (security_invoker = on);
+
+CREATE OR REPLACE FUNCTION get_agreements_with_role()
+RETURNS SETOF agreement_with_role
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT * FROM public.agreement_with_role;
+$$;
+
+CREATE OR REPLACE FUNCTION get_agreements_by_role(role_name TEXT)
+RETURNS SETOF agreement_with_role
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT awr.*
+  FROM public.agreement_with_role awr
+  WHERE awr.role->>'role_name' = role_name;
+$$;
+
+CREATE OR REPLACE FUNCTION get_agreement_by_role_id(role_id UUID)
+RETURNS SETOF agreement_with_role
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT awr.*
+  FROM public.agreement_with_role awr
+  WHERE awr.role->>'role_id' = role_id::text;
+$$;
+
+CREATE OR REPLACE FUNCTION get_agreements_by_role_string(role_string TEXT)
+RETURNS SETOF agreement_with_role
+LANGUAGE sql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT awr.*
+  FROM public.agreement_with_role awr
+  WHERE awr.role->>'role_name' ILIKE '%' || role_string || '%'
+  OR awr.role->>'role_id' IN (
+    SELECT r.id::text
+    FROM public.roles r
+    WHERE r.code ILIKE '%' || role_string || '%'
+  );
+$$;
+
+-- Updated to use FTS for name/last_name search and window function for count
+-- See review notes for rationale and performance considerations
+CREATE OR REPLACE FUNCTION get_agreements_with_role_paginated(
+  p_limit INTEGER DEFAULT 10,
+  p_offset INTEGER DEFAULT 0,
+  p_status TEXT DEFAULT NULL,
+  p_headquarter_id UUID DEFAULT NULL,
+  p_season_id UUID DEFAULT NULL,
+  p_search TEXT DEFAULT NULL,
+  p_role_id UUID DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_total BIGINT;
+  v_results JSONB;
+  v_data JSONB;
+BEGIN
+  SELECT COUNT(*) INTO v_total
+  FROM public.agreement_with_role awr
+  WHERE 
+    (p_status IS NULL OR awr.status = p_status)
+    AND (p_headquarter_id IS NULL OR awr.headquarter_id = p_headquarter_id)
+    AND (p_season_id IS NULL OR awr.season_id = p_season_id)
+    AND (p_search IS NULL OR 
+         awr.name ILIKE '%' || p_search || '%' OR 
+         awr.last_name ILIKE '%' || p_search || '%' OR
+         awr.email ILIKE '%' || p_search || '%' OR
+         awr.document_number ILIKE '%' || p_search || '%')
+    AND (p_role_id IS NULL OR awr.role->>'role_id' = p_role_id::text);
+
+  SELECT jsonb_agg(to_jsonb(awr)) INTO v_data
+  FROM (
+    SELECT *
+    FROM public.agreement_with_role awr
+    WHERE 
+      (p_status IS NULL OR awr.status = p_status)
+      AND (p_headquarter_id IS NULL OR awr.headquarter_id = p_headquarter_id)
+      AND (p_season_id IS NULL OR awr.season_id = p_season_id)
+      AND (p_search IS NULL OR 
+           awr.name ILIKE '%' || p_search || '%' OR 
+           awr.last_name ILIKE '%' || p_search || '%' OR
+           awr.email ILIKE '%' || p_search || '%' OR
+           awr.document_number ILIKE '%' || p_search || '%')
+      AND (p_role_id IS NULL OR awr.role->>'role_id' = p_role_id::text)
+    ORDER BY awr.created_at DESC
+    LIMIT p_limit
+    OFFSET p_offset
+  ) awr;
+
+  -- Handle case when no results are found
+  IF v_data IS NULL THEN
+    v_data := '[]'::jsonb;
+  END IF;
+
+  -- Construct the final result object
+  v_results := jsonb_build_object(
+    'data', v_data,
+    'pagination', jsonb_build_object(
+      'total', v_total,
+      'limit', p_limit,
+      'offset', p_offset,
+      'page', CASE WHEN p_limit > 0 THEN (p_offset / p_limit) + 1 ELSE 1 END,
+      'pages', CASE WHEN p_limit > 0 THEN CEIL(v_total::numeric / p_limit::numeric) ELSE 1 END
+    )
+  );
+
+  RETURN v_results;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION get_agreement_with_role_by_id(p_agreement_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+  v_result JSONB;
+BEGIN
+  SELECT to_jsonb(awr) INTO v_result
+  FROM public.agreement_with_role awr
+  WHERE awr.id = p_agreement_id;
+
+  IF v_result IS NULL THEN
+    RETURN jsonb_build_object('error', 'Agreement not found');
+  END IF;
+
+  RETURN v_result;
+END;
+$$;
+
+
+================================================================================
+File: audit.sql
+Size: 2.86 kB
+================================================================================
+
+/* ---------- 1)  Generic audit table ---------- */
+CREATE TABLE audit_log (
+  id            bigserial PRIMARY KEY,
+  table_name    text,
+  action        text,          -- 'INSERT' | 'UPDATE' | 'DELETE'
+  record_id     uuid,
+  changed_by    uuid,
+  user_name     text,
+  changed_at    timestamptz DEFAULT now(),
+  diff          jsonb
+);
+
+/* ---------- 2)  Re-usable trigger function ---------- */
+-- SECURITY DEFINER: This function runs with elevated privileges. It is required for audit logging but must be maintained with care.
+CREATE OR REPLACE FUNCTION trg_audit()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  user_email text;
+BEGIN
+  -- Get the user's email for better readability in audit logs
+  SELECT email INTO user_email FROM auth.users WHERE id = auth.uid();
+
+  IF (TG_OP = 'DELETE') THEN
+    INSERT INTO public.audit_log(table_name, action, record_id, changed_by, user_name, diff)
+    VALUES (TG_TABLE_NAME, TG_OP, OLD.id, auth.uid(), user_email, to_jsonb(OLD));
+    RETURN OLD;
+  ELSIF (TG_OP = 'UPDATE') THEN
+    INSERT INTO public.audit_log(table_name, action, record_id, changed_by, user_name, diff)
+    VALUES (TG_TABLE_NAME, TG_OP, NEW.id, auth.uid(), user_email,
+            jsonb_build_object('old', to_jsonb(OLD), 'new', to_jsonb(NEW)));
+    RETURN NEW;
+  ELSE  -- INSERT
+    INSERT INTO public.audit_log(table_name, action, record_id, changed_by, user_name, diff)
+    VALUES (TG_TABLE_NAME, TG_OP, NEW.id, auth.uid(), user_email, to_jsonb(NEW));
+    RETURN NEW;
+  END IF;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION trg_audit() TO authenticated;
+
+/* ---------- 3)  Attach trigger to critical tables ---------- */
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['agreements','students','collaborators','headquarters','countries','seasons','scheduled_workshops']
+  LOOP
+    EXECUTE format('
+      DROP TRIGGER IF EXISTS audit_%I ON %I;
+      CREATE TRIGGER audit_%I
+      AFTER INSERT OR UPDATE OR DELETE ON %I
+      FOR EACH ROW EXECUTE PROCEDURE trg_audit();',
+      t, t, t, t);
+  END LOOP;
+END;
+$$;
+
+
+ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+
+-- SELECT: Allow only General Director+ (95+)
+CREATE POLICY audit_select_high_level
+ON audit_log FOR SELECT
+TO authenticated
+USING ( fn_is_general_director_or_higher() );
+
+-- INSERT: Allow only General Director+ (95+)
+CREATE POLICY audit_insert_high_level
+ON audit_log FOR INSERT
+TO authenticated
+WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- UPDATE: Allow only General Director+ (95+)
+CREATE POLICY audit_update_high_level
+ON audit_log FOR UPDATE
+TO authenticated
+USING ( fn_is_general_director_or_higher() )
+WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- DELETE: Allow only General Director+ (95+)
+CREATE POLICY audit_delete_high_level
+ON audit_log FOR DELETE
+TO authenticated
+USING ( fn_is_general_director_or_higher() );
+
+
+================================================================================
+File: collaborators.sql
+Size: 2.69 kB
+================================================================================
+
+CREATE TYPE collaborator_status AS ENUM ('active', 'inactive', 'standby');
+
+-- Collaborators table definition
+CREATE TABLE collaborators (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT ,
+    headquarter_id UUID NOT NULL REFERENCES headquarters(id) ON DELETE RESTRICT,
+    status collaborator_status DEFAULT 'inactive',
+    start_date DATE,
+    end_date DATE
+);
+
+CREATE INDEX idx_collaborators_user_id ON collaborators(user_id);
+CREATE INDEX idx_collaborators_role_id ON collaborators(role_id);
+CREATE INDEX idx_collaborators_headquarter_id ON collaborators(headquarter_id);
+
+ALTER TABLE collaborators ENABLE ROW LEVEL SECURITY;
+
+-- trigger to ensure collaborator has a valid agreement
+CREATE OR REPLACE FUNCTION check_collaborator_has_agreement()
+    RETURNS TRIGGER 
+    SET search_path = ''
+    AS $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM public.agreements WHERE user_id = NEW.user_id) THEN
+        RAISE EXCEPTION 'Collaborator must have a valid agreement';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- Policies for the collaborators table
+
+-- SELECT: Own record, same HQ if level >= 50, any if level >= 90
+CREATE POLICY collaborators_select_self_hq_high
+ON collaborators FOR SELECT
+USING (
+    user_id = (select auth.uid()) OR
+    (fn_is_local_manager_or_higher() AND fn_is_current_user_hq_equal_to(headquarter_id)) OR
+    fn_is_general_director_or_higher()
+);
+
+-- INSERT: Manager+ for own HQ, Director+ for any HQ/role
+CREATE POLICY collaborators_insert_manager_director
+ON collaborators FOR INSERT
+WITH CHECK (
+    (
+        fn_is_local_manager_or_higher()
+        AND fn_is_current_user_hq_equal_to(headquarter_id)
+    )
+    OR fn_is_general_director_or_higher()
+);
+
+-- UPDATE: Own record, manager+ for own HQ (only roles <95), director+ for any
+CREATE POLICY collaborators_update_self_manager_director
+ON collaborators FOR UPDATE
+USING (
+    user_id = (select auth.uid()) OR
+    (fn_is_local_manager_or_higher() AND fn_is_current_user_hq_equal_to(headquarter_id)) OR
+    fn_is_general_director_or_higher()
+)
+WITH CHECK (
+    user_id = (select auth.uid())
+    OR (
+        fn_is_local_manager_or_higher()
+        AND fn_is_current_user_hq_equal_to(headquarter_id)
+        AND (SELECT level FROM roles WHERE id = role_id) < 95
+        )
+    OR fn_is_general_director_or_higher()
+);
+
+-- DELETE: Director+ only
+CREATE POLICY general_director_can_delete_collaborators
+ON collaborators FOR DELETE
+USING ( fn_is_general_director_or_higher() );
+
+
+================================================================================
+File: companion_student_map.sql
+Size: 4.78 kB
+================================================================================
+
+-- schemas/companion_student_map.sql
+
+CREATE TABLE companion_student_map (
+    companion_id uuid NOT NULL REFERENCES collaborators(user_id) ON DELETE CASCADE,
+    student_id uuid NOT NULL REFERENCES students(user_id) ON DELETE CASCADE,
+    season_id uuid NOT NULL REFERENCES seasons(id) ON DELETE CASCADE,
+    headquarter_id uuid NOT NULL REFERENCES headquarters(id) ON DELETE RESTRICT, 
+    created_at timestamptz DEFAULT now() NOT NULL,
+    updated_at timestamptz,
+    CONSTRAINT companion_student_map_pkey PRIMARY KEY (companion_id, student_id, season_id) -- PK ensures uniqueness per season
+);
+
+-- TRIGGER: Enforce HQ consistency between mapping, companion, and student for the given season
+CREATE OR REPLACE FUNCTION check_companion_student_hq_consistency()
+RETURNS TRIGGER 
+SET search_path = ''
+AS $$
+DECLARE
+    companion_hq_id UUID;
+    student_hq_id UUID;
+BEGIN
+    -- Get companion's HQ for the relevant season
+    SELECT a.headquarter_id INTO companion_hq_id
+    FROM public.agreements a
+    WHERE a.user_id = NEW.companion_id AND a.season_id = NEW.season_id
+    LIMIT 1;
+
+    -- Get student's HQ for the relevant season
+    SELECT a.headquarter_id INTO student_hq_id
+    FROM public.agreements a
+    WHERE a.user_id = NEW.student_id AND a.season_id = NEW.season_id
+    LIMIT 1;
+
+    IF NEW.headquarter_id IS DISTINCT FROM companion_hq_id THEN
+        RAISE EXCEPTION 'Companion HQ (%) does not match mapping HQ (%) for season %', companion_hq_id, NEW.headquarter_id, NEW.season_id;
+    END IF;
+    IF NEW.headquarter_id IS DISTINCT FROM student_hq_id THEN
+        RAISE EXCEPTION 'Student HQ (%) does not match mapping HQ (%) for season %', student_hq_id, NEW.headquarter_id, NEW.season_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY INVOKER;
+
+CREATE TRIGGER ensure_companion_student_hq_consistency
+    BEFORE INSERT OR UPDATE ON companion_student_map
+    FOR EACH ROW EXECUTE FUNCTION check_companion_student_hq_consistency();
+
+
+
+COMMENT ON TABLE companion_student_map IS 'Maps companions to students for a specific season and headquarter.';
+COMMENT ON COLUMN companion_student_map.season_id IS 'The season this mapping belongs to.';
+COMMENT ON COLUMN companion_student_map.headquarter_id IS 'The headquarter this mapping belongs to (should match student''s HQ).';
+
+CREATE INDEX idx_companion_student_map_companion_id ON companion_student_map(companion_id);
+CREATE INDEX idx_companion_student_map_student_id ON companion_student_map(student_id);
+CREATE INDEX idx_companion_student_map_season_id ON companion_student_map(season_id);
+CREATE INDEX idx_companion_student_map_headquarter_id ON companion_student_map(headquarter_id);
+CREATE INDEX idx_companion_student_map_agreement_id ON companion_student_map(headquarter_id, season_id);
+
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON companion_student_map
+  FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
+
+ALTER TABLE companion_student_map ENABLE ROW LEVEL SECURITY;
+
+-- SELECT Policy:
+-- Companion sees their own maps.
+-- Manager Assistant+  sees all maps for their HQ (all seasons).
+-- Director+  sees all maps for all HQs (all seasons).
+CREATE POLICY select_companion_map
+ON companion_student_map FOR SELECT
+USING (
+    (select auth.uid()) = companion_id
+    OR
+    (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
+    OR
+    fn_is_general_director_or_higher()
+);
+
+-- INSERT Policy:
+-- Manager Assistant+ can insert maps for their HQ.
+-- Director+ can insert maps for any HQ.
+CREATE POLICY insert_companion_map
+ON companion_student_map FOR INSERT
+WITH CHECK (
+    (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
+    OR
+    fn_is_general_director_or_higher()
+);
+
+-- UPDATE Policy:
+-- Manager Assistant+ can update maps for their HQ.
+-- Director+ can update maps for any HQ.
+-- Prevent changing key identifiers like student_id, companion_id, season_id, headquarter_id unless Director+
+CREATE POLICY update_companion_map
+ON companion_student_map FOR UPDATE
+USING (
+    (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
+    OR
+    fn_is_general_director_or_higher()
+)
+WITH CHECK (
+    -- Ensure the HQ isn't changed unless by Director+
+    (headquarter_id =headquarter_id AND season_id = season_id) -- Manager+ can only update within existing HQ/Season context
+    OR
+    fn_is_general_director_or_higher() -- Director+ can change anything (potentially)
+);
+
+
+-- DELETE Policy:
+-- Manager Assistant+ can delete maps from their HQ.
+-- Director+ can delete maps from any HQ.
+CREATE POLICY delete_companion_map
+ON companion_student_map FOR DELETE
+USING (
+    (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
+    OR
+    fn_is_general_director_or_higher()
+);
+
+
+================================================================================
+File: countries.sql
+Size: 1.42 kB
+================================================================================
+
+-- Countries table definition
+CREATE TABLE countries
+(
+    id         UUID PRIMARY KEY                              DEFAULT uuid_generate_v4(),
+    name       TEXT NOT NULL,
+    code       TEXT NOT NULL UNIQUE,
+    status     TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active', -- SUGGESTION: Consider ENUM for status for type safety.
+    created_at TIMESTAMPTZ                                   DEFAULT NOW(),
+    updated_at TIMESTAMPTZ                                   DEFAULT NOW()
+);
+
+CREATE TRIGGER handle_updated_at_countries
+    BEFORE UPDATE
+    ON countries
+    FOR EACH ROW
+EXECUTE PROCEDURE moddatetime(updated_at);
+
+CREATE INDEX idx_countries_code ON countries (code); -- Support fast lookup by code
+
+ALTER TABLE countries
+    ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow authenticated users to view countries"
+    ON countries
+    FOR SELECT
+    TO authenticated
+    USING (true);
+
+CREATE POLICY "Allow super admin to insert countries"
+    ON countries
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (fn_is_super_admin());
+
+CREATE POLICY "Allow super admin to update countries"
+    ON countries
+    FOR UPDATE
+    TO authenticated
+    USING (fn_is_super_admin())
+    WITH CHECK (fn_is_super_admin());
+
+CREATE POLICY "Allow super admin to delete countries"
+    ON countries
+    FOR DELETE
+    TO authenticated
+    USING (fn_is_super_admin());
+
+
+================================================================================
+File: dashboard_functions.sql
+Size: 93.15 kB
+================================================================================
+
 -- Functions for dashboard statistics
 
 CREATE OR REPLACE FUNCTION get_dashboard_agreement_review_statistics()
@@ -1913,3 +2667,1175 @@ $$;
 
 -- Grant execute permission
 GRANT EXECUTE ON FUNCTION get_companion_effectiveness_metrics(uuid) TO authenticated;
+
+
+================================================================================
+File: events.sql
+Size: 2.49 kB
+================================================================================
+
+-- Events table definition
+CREATE TABLE events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title TEXT NOT NULL,
+    description TEXT,
+    headquarter_id UUID REFERENCES headquarters(id) ON DELETE RESTRICT,
+    season_id UUID REFERENCES seasons(id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    start_datetime TIMESTAMPTZ,
+    end_datetime TIMESTAMPTZ,
+    data JSONB,
+    status TEXT CHECK (status IN ('draft', 'scheduled', 'completed', 'cancelled')) DEFAULT 'draft', -- SUGGESTION: Consider ENUM for status for type safety.
+
+    event_type_id integer REFERENCES event_types(id) ON DELETE RESTRICT
+);
+
+CREATE TRIGGER handle_updated_at_events
+    BEFORE UPDATE ON events
+    FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
+
+CREATE INDEX idx_events_headquarter_id ON events(headquarter_id); -- Support HQ-based queries
+CREATE INDEX idx_events_status ON events(status); -- Support status filtering
+CREATE INDEX idx_events_start_datetime ON events(start_datetime); -- Support time-based queries
+CREATE INDEX idx_events_event_type_id ON events (event_type_id);
+CREATE INDEX idx_events_season_id ON events (season_id);
+
+ALTER TABLE events ENABLE ROW LEVEL SECURITY;
+
+-- Policies for the events table
+
+-- SELECT: Authenticated users in their HQ, or konsejo_member_or_higher anywhere
+CREATE POLICY events_select_auth_hq
+ON events FOR SELECT
+TO authenticated
+USING (
+    headquarter_id = fn_get_current_hq_id() OR
+    fn_is_konsejo_member_or_higher()
+);
+
+-- INSERT: collaborator_or_higher+ for own HQ, konsejo_member_or_higher for any HQ
+-- Collaborators can create events of type 'companion-activity' for example
+CREATE POLICY events_insert_collaborator_konsejo
+ON events FOR INSERT
+WITH CHECK (
+    (fn_is_collaborator_or_higher() AND headquarter_id = fn_get_current_hq_id()) OR
+    fn_is_konsejo_member_or_higher()
+);
+
+-- UPDATE: collaborator_or_higher+ for own HQ, konsejo_member_or_higher for any HQ
+CREATE POLICY events_update_collaborator_konsejo
+ON events FOR UPDATE
+USING (
+    (fn_is_collaborator_or_higher() AND headquarter_id = fn_get_current_hq_id()) OR
+    fn_is_konsejo_member_or_higher()
+)WITH CHECK (
+    -- Can only change HQ/Season if Konsejo Member+
+    (headquarter_id = headquarter_id AND season_id = season_id)
+    OR
+    fn_is_konsejo_member_or_higher()
+);
+
+-- DELETE: Director+ only
+CREATE POLICY events_delete_director
+ON events FOR DELETE
+USING ( fn_is_general_director_or_higher() );
+
+
+================================================================================
+File: event_types.sql
+Size: 1.7 kB
+================================================================================
+
+-- schemas/event_types.sql
+
+CREATE TABLE event_types (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    title TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ
+);
+
+COMMENT ON TABLE event_types IS 'Defines the categories or types of events.';
+CREATE INDEX idx_event_types_name ON event_types(name); -- Support fast lookup by name
+-- SUGGESTION: If status or similar field is added, consider ENUM for type safety.
+COMMENT ON COLUMN event_types.name IS 'Unique name for the event type (e.g., ''Companion Activity'', ''HQ Meeting'').';
+COMMENT ON COLUMN event_types.description IS 'Optional longer description of the event type.';
+COMMENT ON COLUMN event_types.title IS 'Title for the event type.';
+
+CREATE TRIGGER handle_updated_at_event_types
+    BEFORE UPDATE ON event_types
+    FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
+
+ALTER TABLE event_types ENABLE ROW LEVEL SECURITY;
+
+
+-- SELECT: Allow all authenticated users to view event types
+CREATE POLICY event_types_select_authenticated
+ON event_types FOR SELECT
+TO authenticated
+USING (true);
+
+-- INSERT: Restrict to Konsejo Member+ (or adjust level as needed)
+CREATE POLICY event_types_insert_high_level
+ON event_types FOR INSERT
+WITH CHECK ( fn_is_konsejo_member_or_higher() );
+
+-- UPDATE: Restrict to Konsejo Member+
+CREATE POLICY event_types_update_high_level
+ON event_types FOR UPDATE
+USING ( fn_is_konsejo_member_or_higher() )
+WITH CHECK ( fn_is_konsejo_member_or_higher() );
+
+-- DELETE: Restrict to Konsejo Member+ (or perhaps Super Admin)
+CREATE POLICY event_types_delete_high_level
+ON event_types FOR DELETE
+USING ( fn_is_konsejo_member_or_higher() );
+
+
+================================================================================
+File: extensions.sql
+Size: 161 B
+================================================================================
+
+-- Extensions necessary for the Akademia database
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "moddatetime" SCHEMA extensions;
+
+
+================================================================================
+File: facilitator_workshop_map.sql
+Size: 5.52 kB
+================================================================================
+
+-- schemas/facilitator_workshop_map.sql
+
+CREATE TABLE facilitator_workshop_map (
+    facilitator_id uuid NOT NULL REFERENCES collaborators(user_id) ON DELETE CASCADE,
+    workshop_id uuid NOT NULL REFERENCES scheduled_workshops(id) ON DELETE CASCADE,
+    headquarter_id uuid NOT NULL REFERENCES headquarters(id) ON DELETE RESTRICT, 
+    season_id uuid NOT NULL REFERENCES seasons(id) ON DELETE CASCADE, 
+    created_at timestamptz DEFAULT now() NOT NULL,
+    updated_at timestamptz,
+    -- PRIMARY KEY
+    CONSTRAINT facilitator_workshop_map_pkey PRIMARY KEY (facilitator_id, workshop_id, season_id, headquarter_id) -- PK ensures uniqueness
+);
+
+-- TRIGGER: Enforce consistency between facilitator, workshop, HQ, and season
+CREATE OR REPLACE FUNCTION check_facilitator_workshop_map_consistency()
+RETURNS TRIGGER 
+SET search_path = ''
+AS $$
+DECLARE
+    facilitator_hq_id UUID;
+    workshop_hq_id UUID;
+    workshop_season_id UUID;
+BEGIN
+    -- Get facilitator's HQ
+    SELECT c.headquarter_id INTO facilitator_hq_id
+    FROM public.collaborators c
+    WHERE c.user_id = NEW.facilitator_id
+    LIMIT 1;
+
+    -- Get workshop's HQ and season
+    SELECT w.headquarter_id, w.season_id INTO workshop_hq_id, workshop_season_id
+    FROM public.scheduled_workshops w
+    WHERE w.id = NEW.workshop_id
+    LIMIT 1;
+
+    IF NEW.headquarter_id IS DISTINCT FROM facilitator_hq_id THEN
+        RAISE EXCEPTION 'Facilitator HQ (%) does not match mapping HQ (%)', facilitator_hq_id, NEW.headquarter_id;
+    END IF;
+    IF NEW.headquarter_id IS DISTINCT FROM workshop_hq_id THEN
+        RAISE EXCEPTION 'Workshop HQ (%) does not match mapping HQ (%)', workshop_hq_id, NEW.headquarter_id;
+    END IF;
+    IF NEW.season_id IS DISTINCT FROM workshop_season_id THEN
+        RAISE EXCEPTION 'Workshop season (%) does not match mapping season (%)', workshop_season_id, NEW.season_id;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY INVOKER;
+
+CREATE TRIGGER ensure_facilitator_workshop_map_consistency
+    BEFORE INSERT OR UPDATE ON facilitator_workshop_map
+    FOR EACH ROW EXECUTE FUNCTION check_facilitator_workshop_map_consistency();
+
+
+COMMENT ON TABLE facilitator_workshop_map IS 'Maps facilitators to scheduled_workshops for a specific season and headquarter.';
+COMMENT ON COLUMN facilitator_workshop_map.headquarter_id IS 'The headquarter this mapping belongs to.';
+COMMENT ON COLUMN facilitator_workshop_map.season_id IS 'The season this mapping belongs to.';
+
+-- INDEXES
+CREATE INDEX idx_facilitator_workshop_map_facilitator_id ON facilitator_workshop_map(facilitator_id);
+CREATE INDEX idx_facilitator_workshop_map_workshop_id ON facilitator_workshop_map(workshop_id);
+CREATE INDEX idx_facilitator_workshop_map_headquarter_id ON facilitator_workshop_map(headquarter_id); 
+CREATE INDEX idx_facilitator_workshop_map_season_id ON facilitator_workshop_map(season_id); 
+
+-- COMPOSITE INDEXES
+CREATE INDEX idx_facilitator_workshop_map_headquarter_season ON facilitator_workshop_map(headquarter_id, season_id);
+CREATE INDEX idx_facilitator_workshop_map_facilitator_season ON facilitator_workshop_map(facilitator_id, season_id);
+CREATE INDEX idx_facilitator_workshop_map_workshop_season ON facilitator_workshop_map(workshop_id, season_id);
+CREATE INDEX idx_facilitator_workshop_map_headquarter_workshop ON facilitator_workshop_map(headquarter_id, workshop_id);
+CREATE INDEX idx_facilitator_workshop_map_facilitator_workshop ON facilitator_workshop_map(facilitator_id, workshop_id);
+CREATE INDEX idx_facilitator_workshop_map_headquarter_facilitator ON facilitator_workshop_map(headquarter_id, facilitator_id);
+
+-- RLS
+ALTER TABLE facilitator_workshop_map ENABLE ROW LEVEL SECURITY;
+
+-- POLICIES
+-- SELECT Policy:
+-- Facilitator sees their own maps.
+-- Manager Assistant+ sees all maps for their HQ (all seasons).
+-- Director+ sees all maps for all HQs (all seasons).
+CREATE POLICY select_facilitator_map
+ON facilitator_workshop_map FOR SELECT
+USING (
+    (select auth.uid())= facilitator_id
+    OR
+    (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
+    OR
+    fn_is_general_director_or_higher()
+);
+
+-- INSERT Policy:
+-- Manager Assistant+ can insert maps for their HQ.
+-- Director+ can insert maps for any HQ.
+CREATE POLICY insert_facilitator_map
+ON facilitator_workshop_map FOR INSERT
+WITH CHECK (
+    (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
+    OR
+    fn_is_general_director_or_higher()
+);
+
+-- UPDATE Policy:
+-- Manager Assistant+ can update maps for their HQ.
+-- Director+ can update maps for any HQ.
+-- Prevent changing key identifiers unless Director+
+CREATE POLICY update_facilitator_map
+ON facilitator_workshop_map FOR UPDATE
+USING (
+    (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
+    OR
+    fn_is_general_director_or_higher()
+)
+WITH CHECK (
+    -- Ensure the HQ/Season isn't changed unless by Director+
+    (headquarter_id = headquarter_id AND season_id = season_id)
+    OR
+    fn_is_general_director_or_higher()
+);
+
+
+-- DELETE Policy:
+-- Manager Assistant+ can delete maps from their HQ.
+-- Director+ can delete maps from any HQ.
+CREATE POLICY delete_facilitator_map
+ON facilitator_workshop_map FOR DELETE
+USING (
+    (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
+    OR
+    fn_is_general_director_or_higher()
+);
+
+-- Ensure updated_at is set
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON facilitator_workshop_map
+  FOR EACH ROW EXECUTE PROCEDURE moddatetime (updated_at);
+
+
+================================================================================
+File: headquarters.sql
+Size: 1.61 kB
+================================================================================
+
+-- Headquarters table definition
+CREATE TABLE headquarters (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    country_id UUID REFERENCES countries(id) ON DELETE RESTRICT,
+    address TEXT,
+    contact_info JSONB DEFAULT '{}',
+    status TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active', -- SUGGESTION: Consider ENUM for status for type safety.
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TRIGGER handle_updated_at_headquarters
+    BEFORE UPDATE ON headquarters
+    FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
+
+CREATE INDEX idx_headquarters_country_id ON headquarters(country_id); -- Support country-based queries
+
+-- Enable Row Level Security
+ALTER TABLE headquarters ENABLE ROW LEVEL SECURITY;
+
+-- Policies for the headquarters table
+
+-- SELECT: Allow any authenticated user to view headquarters
+CREATE POLICY hq_select_auth
+ON headquarters FOR SELECT
+TO authenticated
+USING (true OR fn_is_general_director_or_higher());
+
+-- INSERT: Allow only general directors or higher
+CREATE POLICY hq_insert_high_level
+ON headquarters FOR INSERT
+TO authenticated
+WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- UPDATE: Allow only general directors or higher
+CREATE POLICY hq_update_high_level
+ON headquarters FOR UPDATE
+TO authenticated
+USING ( fn_is_general_director_or_higher() )
+WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- DELETE: Allow only general directors or higher
+CREATE POLICY hq_delete_high_level
+ON headquarters FOR DELETE
+TO authenticated
+USING ( fn_is_general_director_or_higher() );
+
+
+================================================================================
+File: master_workshop_types.sql
+Size: 1.99 kB
+================================================================================
+
+-- schemas/master_workshop_types.sql
+
+CREATE TABLE master_workshop_types (
+    id SERIAL PRIMARY KEY,
+    master_name TEXT NOT NULL UNIQUE, -- Official name from General Direction
+    master_description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ
+);
+
+COMMENT ON TABLE master_workshop_types IS 'Central catalog of standardized workshop types offered by the General Direction.';
+COMMENT ON COLUMN master_workshop_types.master_name IS 'The official, unique name of the workshop template.';
+COMMENT ON COLUMN master_workshop_types.master_description IS 'Detailed description of the master workshop template.';
+
+CREATE TRIGGER handle_updated_at_master_workshop_types
+    BEFORE UPDATE ON master_workshop_types
+    FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
+-- SUGGESTION: If status or similar field is added, consider ENUM for type safety.
+
+-- Enable Row Level Security
+ALTER TABLE master_workshop_types ENABLE ROW LEVEL SECURITY;
+
+-- Policies: Allow viewing by authenticated, management by high roles (e.g., Super Admin)
+CREATE POLICY master_workshop_types_select_auth
+    ON master_workshop_types FOR SELECT
+    TO authenticated USING (true);
+
+-- INSERT: Allow only super admins
+CREATE POLICY master_workshop_types_insert_superadmin
+    ON master_workshop_types FOR INSERT
+    TO authenticated
+    WITH CHECK ( fn_is_general_director_or_higher() ); -- Only Super Admins can insert master types
+
+-- UPDATE: Allow only super admins
+CREATE POLICY master_workshop_types_update_superadmin
+    ON master_workshop_types FOR UPDATE
+    TO authenticated
+    USING ( fn_is_general_director_or_higher() ) -- Only Super Admins can update master types
+    WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- DELETE: Allow only super admins
+CREATE POLICY master_workshop_types_delete_superadmin
+    ON master_workshop_types FOR DELETE
+    TO authenticated
+    USING ( fn_is_general_director_or_higher() ); -- Only Super Admins can delete master types
+
+
+================================================================================
+File: processes.sql
+Size: 1.5 kB
+================================================================================
+
+-- Processes table definition
+CREATE TABLE processes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    name VARCHAR(50) NOT NULL,
+    description TEXT,
+    type TEXT,
+    status TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active', -- SUGGESTION: Consider ENUM for status for type safety.
+    version TEXT,
+    content JSONB,
+    required_approvals UUID[]
+);
+
+CREATE TRIGGER handle_updated_at_processes
+    BEFORE UPDATE ON processes
+    FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
+
+CREATE INDEX idx_processes_status ON processes(status); -- Support status filtering
+
+-- Enable Row Level Security
+ALTER TABLE processes ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for authenticated users
+-- SELECT policy
+CREATE POLICY "Allow authenticated users to view processes"
+ON processes
+FOR SELECT
+TO authenticated
+USING (true);
+
+-- INSERT: Allow only high-level roles
+CREATE POLICY processes_insert_high_level
+ON processes FOR INSERT
+TO authenticated
+WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- UPDATE: Allow only high-level roles
+CREATE POLICY processes_update_high_level
+ON processes FOR UPDATE
+TO authenticated
+USING ( fn_is_general_director_or_higher() )
+WITH CHECK ( fn_is_general_director_or_higher() );
+
+-- DELETE: Allow only high-level roles
+CREATE POLICY processes_delete_high_level
+ON processes FOR DELETE
+TO authenticated
+USING ( fn_is_general_director_or_higher() );
+
+
+================================================================================
+File: rbac_helpers.sql
+Size: 4.72 kB
+================================================================================
+
+-- Helper functions for Role-Based Access Control (RBAC)
+-- Super administrador	100
+-- Director General	95
+-- Líder Ejecutivo	90
+-- Líder Pedagógico	90
+-- Líder de Comunicación	90
+-- Líder de Koordinación	90
+-- Líder de Innovación	80
+-- Líder de Komunidad	80
+-- Fundación Utópika	80
+-- Koordinador	80
+-- Asesor Legal	80
+-- Miembro del Konsejo de Dirección	80
+-- Director/a Local	50
+-- Director/a Pedagógico Local	50
+-- Director/a de Comunicación Local	50
+-- Director/a de Acompañantes Local	50
+-- Asistente a la dirección	30
+-- Acompañante	20
+-- Facilitador	20
+-- Alumno	1
+
+-- Function to safely get the entire metadata object for the current user
+CREATE OR REPLACE FUNCTION fn_get_current_user_metadata()
+    RETURNS jsonb
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT COALESCE(raw_user_meta_data, '{}'::jsonb)
+FROM auth.users
+WHERE id = auth.uid();
+$$;
+
+
+-- Function to get the current user's role code
+CREATE OR REPLACE FUNCTION fn_get_current_role_code()
+    RETURNS text
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT public.fn_get_current_user_metadata() ->> 'role';
+$$;
+
+-- Function to get the current user's role level
+CREATE OR REPLACE FUNCTION fn_get_current_role_level()
+    RETURNS integer
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT COALESCE((public.fn_get_current_user_metadata() ->> 'role_level')::integer, 0);
+$$;
+
+-- Function to get the current user's role ID
+CREATE OR REPLACE FUNCTION fn_get_current_role_id()
+    RETURNS uuid
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT NULLIF(public.fn_get_current_user_metadata() ->> 'role_id', '')::uuid;
+$$;
+
+-- Function to get the current user's headquarter ID
+CREATE OR REPLACE FUNCTION fn_get_current_hq_id()
+    RETURNS uuid
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT NULLIF(public.fn_get_current_user_metadata() ->> 'hq_id', '')::uuid;
+$$;
+
+-- Function to get the current user's season ID
+CREATE OR REPLACE FUNCTION fn_get_current_season_id()
+    RETURNS uuid
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT NULLIF(public.fn_get_current_user_metadata() ->> 'season_id', '')::uuid;
+$$;
+
+-- Function to get the current user's agreement ID
+CREATE OR REPLACE FUNCTION fn_get_current_agreement_id()
+    RETURNS uuid
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT NULLIF(public.fn_get_current_user_metadata() ->> 'agreement_id', '')::uuid;
+$$;
+
+--Is super admin
+CREATE OR REPLACE FUNCTION fn_is_super_admin()
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT public.fn_get_current_role_level() >= 100;
+$$;
+
+-- Function that returns true if role is General Director (95+) or higher
+CREATE OR REPLACE FUNCTION fn_is_general_director_or_higher()
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT public.fn_get_current_role_level() >= 95;
+$$;
+
+-- Function that returns true if role is Konsejo member or higher (80+)
+CREATE OR REPLACE FUNCTION fn_is_konsejo_member_or_higher()
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT public.fn_get_current_role_level() >= 80;
+$$;
+
+-- Function that returns true if role is local manager (50+) or higher
+CREATE OR REPLACE FUNCTION fn_is_local_manager_or_higher()
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT public.fn_get_current_role_level() >= 50;
+$$;
+
+-- Function that returns true if role is manager assistant (30+) or higher
+CREATE OR REPLACE FUNCTION fn_is_manager_assistant_or_higher()
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT public.fn_get_current_role_level() >= 30;
+$$;
+
+-- Function that returns true if role is collaborator (20+) or higher
+CREATE OR REPLACE FUNCTION fn_is_collaborator_or_higher()
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT public.fn_get_current_role_level() >= 20;
+$$;
+
+-- Function that returns true if role is student (1+) or higher
+CREATE OR REPLACE FUNCTION fn_is_student_or_higher()
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT public.fn_get_current_role_level() >= 1;
+$$;
+
+-- Function that returns true if the current user hq is the same as the provided hq id
+CREATE OR REPLACE FUNCTION fn_is_current_user_hq_equal_to(hq_id uuid)
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT public.fn_get_current_hq_id() = hq_id;
+$$;
+
+
+
+================================================================================
+File: roles.sql
+Size: 1.79 kB
+================================================================================
+
+-- Roles table definition
+CREATE TABLE roles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    code TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT,
+    status TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active', -- SUGGESTION: Consider ENUM for status for type safety.
+    level INTEGER NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    permissions JSONB DEFAULT '{}'
+);
+
+CREATE TRIGGER handle_updated_at_roles
+    BEFORE UPDATE ON roles
+    FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
+
+CREATE INDEX idx_roles_code ON roles(code); -- Support fast lookup by code
+
+-- Enable Row Level Security
+ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
+
+-- Policies for the role table
+
+-- SELECT: Allow any authenticated user to view roles
+CREATE POLICY roles_select_auth
+ON roles FOR SELECT
+TO authenticated
+USING (true);
+
+-- INSERT: Allow only superadmin roles (>=100)
+CREATE POLICY roles_insert_superadmin
+ON roles FOR INSERT
+TO authenticated
+WITH CHECK ( fn_get_current_role_level() >= 100 );
+
+-- UPDATE: Allow only superadmin roles (>=100)
+CREATE POLICY roles_update_superadmin
+ON roles FOR UPDATE
+TO authenticated
+USING ( fn_get_current_role_level() >= 100 )
+WITH CHECK ( fn_get_current_role_level() >= 100 );
+
+-- DELETE: Allow only superadmin roles (>=100)
+CREATE POLICY roles_delete_superadmin
+ON roles FOR DELETE
+TO authenticated
+USING ( fn_get_current_role_level() >= 100 );
+
+CREATE OR REPLACE FUNCTION fn_is_role_level_below(p_role_id UUID, p_level_threshold INT)
+    RETURNS BOOLEAN 
+    SET search_path = ''
+    AS $$
+    DECLARE
+role_level INT;
+BEGIN
+SELECT level INTO role_level FROM public.roles WHERE id = p_role_id;
+RETURN role_level < p_level_threshold;
+END;
+    $$ LANGUAGE plpgsql STABLE;
+
+
+================================================================================
+File: scheduled_workshops.sql
+Size: 5.01 kB
+================================================================================
+
+-- schemas/scheduled_workshops.sql
+
+CREATE TABLE scheduled_workshops (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    master_workshop_type_id INTEGER NOT NULL REFERENCES master_workshop_types(id) ON DELETE RESTRICT,
+    headquarter_id UUID NOT NULL REFERENCES headquarters(id) ON DELETE RESTRICT,
+    season_id UUID NOT NULL REFERENCES seasons(id) ON DELETE RESTRICT,
+    -- Facilitator must be a collaborator from the *same headquarter* (enforced by trigger)
+    facilitator_id UUID NOT NULL REFERENCES collaborators(user_id) ON DELETE RESTRICT,
+    local_name TEXT NOT NULL, -- HQ-specific name for this instance
+    start_datetime TIMESTAMPTZ NOT NULL,
+    end_datetime TIMESTAMPTZ NOT NULL,
+    location_details TEXT, -- E-g online, at headquarters, outside...
+    status TEXT NOT NULL CHECK (status IN ('scheduled', 'completed', 'cancelled')) DEFAULT 'scheduled', -- SUGGESTION: Consider ENUM for status for type safety.
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ,
+    -- Ensure a specific HQ doesn't schedule the exact same local name twice in one season
+    CONSTRAINT uq_local_name_hq_season UNIQUE (local_name, headquarter_id, season_id),
+    -- Ensure end time is after start time
+    CONSTRAINT chk_workshop_times CHECK (end_datetime > start_datetime)
+);
+
+COMMENT ON TABLE scheduled_workshops IS 'Specific instances of scheduled_workshops scheduled by a headquarter for a given season.';
+COMMENT ON COLUMN scheduled_workshops.master_workshop_type_id IS 'Link to the master template for this workshop.';
+COMMENT ON COLUMN scheduled_workshops.headquarter_id IS 'The HQ that scheduled and is hosting this workshop instance.';
+COMMENT ON COLUMN scheduled_workshops.season_id IS 'The season during which this workshop instance takes place.';
+COMMENT ON COLUMN scheduled_workshops.facilitator_id IS 'The primary collaborator assigned to facilitate this specific instance.';
+COMMENT ON COLUMN scheduled_workshops.local_name IS 'The name given to this workshop instance by the hosting headquarter.';
+COMMENT ON COLUMN scheduled_workshops.start_datetime IS 'Start date and time of the workshop instance.';
+COMMENT ON COLUMN scheduled_workshops.end_datetime IS 'End date and time of the workshop instance.';
+COMMENT ON COLUMN scheduled_workshops.status IS 'The current status of the scheduled workshop instance.';
+
+CREATE INDEX idx_scheduled_workshops_master_type ON scheduled_workshops(master_workshop_type_id); -- Support filtering by type
+CREATE INDEX idx_scheduled_workshops_hq ON scheduled_workshops(headquarter_id); -- Support HQ-based queries
+CREATE INDEX idx_scheduled_workshops_season ON scheduled_workshops(season_id); -- Support season-based queries
+CREATE INDEX idx_scheduled_workshops_facilitator ON scheduled_workshops(facilitator_id); -- Support facilitator-based queries
+CREATE INDEX idx_scheduled_workshops_start_time ON scheduled_workshops(start_datetime); -- Support time-based queries
+
+CREATE TRIGGER handle_updated_at_scheduled_workshops
+    BEFORE UPDATE ON scheduled_workshops
+    FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
+
+-- Enable Row Level Security
+ALTER TABLE scheduled_workshops ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies (Example - Adjust roles/levels as needed)
+-- SELECT: Facilitator sees own, Manager Assistant+ sees own HQ, Director+ sees all
+CREATE POLICY scheduled_workshops_select_policy
+    ON scheduled_workshops FOR SELECT
+    TO authenticated
+    USING (
+        facilitator_id = (select auth.uid())
+        OR
+        (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
+        OR
+        fn_is_general_director_or_higher()
+    );
+
+-- INSERT: Manager Assistant+ for own HQ, Director+ for any
+CREATE POLICY scheduled_workshops_insert_policy
+    ON scheduled_workshops FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
+        OR
+        fn_is_general_director_or_higher()
+        -- Trigger will validate facilitator role/HQ
+    );
+
+-- UPDATE: Manager Assistant+ for own HQ (no HQ/Season change), Director+ for any (can change HQ/Season)
+CREATE POLICY scheduled_workshops_update_policy
+    ON scheduled_workshops FOR UPDATE
+    TO authenticated
+    USING (
+        (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
+        OR
+        fn_is_general_director_or_higher()
+    )
+    WITH CHECK (
+        (headquarter_id = headquarter_id AND season_id = season_id AND fn_is_manager_assistant_or_higher())
+        OR
+        fn_is_general_director_or_higher()
+        -- Trigger will validate facilitator role/HQ on change
+    );
+
+-- DELETE: Manager Assistant+ for own HQ, Director+ for any
+CREATE POLICY scheduled_workshops_delete_policy
+    ON scheduled_workshops FOR DELETE
+    TO authenticated
+    USING (
+        (fn_is_manager_assistant_or_higher() AND headquarter_id = fn_get_current_hq_id())
+        OR
+        fn_is_general_director_or_higher()
+    );
+
+
+================================================================================
+File: seasons.sql
+Size: 3.43 kB
+================================================================================
+
+-- Seasons table definition
+CREATE TABLE seasons (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    headquarter_id UUID NOT NULL REFERENCES headquarters(id) ON DELETE RESTRICT,
+    manager_id UUID NULL REFERENCES collaborators(user_id) ON DELETE SET NULL,
+    start_date DATE,
+    end_date DATE,
+    status TEXT CHECK (status IN ('active', 'inactive', 'completed')) DEFAULT 'inactive', -- SUGGESTION: Consider ENUM for status for type safety.
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT unique_season_name_per_hq UNIQUE (name, headquarter_id),
+    CONSTRAINT check_season_dates CHECK (end_date IS NULL OR start_date IS NULL OR end_date >= start_date)
+);
+
+COMMENT ON TABLE seasons IS 'Defines operational seasons within a headquarter.';
+COMMENT ON COLUMN seasons.headquarter_id IS 'The headquarter this season belongs to.';
+COMMENT ON COLUMN seasons.manager_id IS 'Optional manager (collaborator) assigned to oversee the season.';
+COMMENT ON COLUMN seasons.status IS 'Current status of the season lifecycle.';
+COMMENT ON CONSTRAINT unique_season_name_per_hq ON seasons IS 'Ensures season names are unique within each headquarter.';
+COMMENT ON CONSTRAINT check_season_dates ON seasons IS 'Ensures end_date is not before start_date.';
+
+
+CREATE TRIGGER handle_updated_at_seasons
+    BEFORE UPDATE ON seasons
+    FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
+
+CREATE INDEX idx_seasons_headquarter_id ON seasons(headquarter_id); -- Support HQ-based queries
+CREATE INDEX idx_seasons_manager_id ON seasons(manager_id); -- Support manager-based queries
+CREATE INDEX idx_seasons_status ON seasons(status); -- Support status filtering
+CREATE INDEX idx_seasons_start_date ON seasons(start_date); -- Support date-based queries
+
+ALTER TABLE seasons ENABLE ROW LEVEL SECURITY;
+
+-- Policies for the seasons table (using helper functions)
+
+-- SELECT policy: View own HQ's seasons or all if Konsejo Member+
+CREATE POLICY seasons_select_policy
+ON seasons FOR SELECT
+TO authenticated
+USING (
+    headquarter_id = fn_get_current_hq_id()
+    OR
+    fn_is_konsejo_member_or_higher() -- Konsejo+ can see all
+);
+
+-- INSERT policy: Konsejo+ for own HQ, General Director+ for any
+CREATE POLICY seasons_insert_policy
+ON seasons FOR INSERT
+TO authenticated
+WITH CHECK (
+    (fn_is_konsejo_member_or_higher() AND headquarter_id = fn_get_current_hq_id()) -- Konsejo+ can insert for own HQ
+    OR
+    fn_is_general_director_or_higher() -- General Director+ can insert for any HQ
+);
+
+-- UPDATE policy: Konsejo+ for own HQ (no HQ change), General Director+ for any (can change HQ)
+CREATE POLICY seasons_update_policy
+ON seasons FOR UPDATE
+TO authenticated
+USING (
+    -- Target rows: Konsejo+ own HQ, or General Director+ any
+    (fn_is_konsejo_member_or_higher() AND headquarter_id = fn_get_current_hq_id())
+    OR
+    fn_is_general_director_or_higher()
+)
+WITH CHECK (
+    -- Check after update: HQ cannot be changed unless user is General Director+
+    (headquarter_id = headquarter_id AND fn_is_konsejo_member_or_higher()) -- Konsejo+ can update if HQ doesn't change
+    OR
+    fn_is_general_director_or_higher() -- General Director+ can update and change HQ
+);
+
+-- DELETE policy: General Director+ only
+CREATE POLICY seasons_delete_policy
+ON seasons FOR DELETE
+TO authenticated
+USING (
+    fn_is_general_director_or_higher() -- Only General Director+ can delete
+);
+
+
+================================================================================
+File: strapi_migrations.sql
+Size: 1.67 kB
+================================================================================
+
+CREATE TABLE strapi_migrations (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    migration_timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_migrated_at TIMESTAMPTZ NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('success', 'failed')),
+    records_processed INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Add comment to the table
+COMMENT ON TABLE strapi_migrations IS 'Tracks Strapi to Supabase migration runs';
+
+-- Add comments to columns
+COMMENT ON COLUMN strapi_migrations.id IS 'Unique identifier for each migration run';
+COMMENT ON COLUMN strapi_migrations.migration_timestamp IS 'When the migration was executed';
+COMMENT ON COLUMN strapi_migrations.last_migrated_at IS 'Timestamp of the last successfully migrated record';
+COMMENT ON COLUMN strapi_migrations.status IS 'Status of the migration (success/failed)';
+COMMENT ON COLUMN strapi_migrations.records_processed IS 'Number of records processed in this migration';
+COMMENT ON COLUMN strapi_migrations.error_message IS 'Error message if migration failed';
+COMMENT ON COLUMN strapi_migrations.created_at IS 'When this record was created';
+
+-- Add RLS policies
+ALTER TABLE strapi_migrations ENABLE ROW LEVEL SECURITY;
+
+-- Allow authenticated users to view migration history
+CREATE POLICY "Allow authenticated users to view migration history" 
+ON strapi_migrations FOR SELECT 
+TO authenticated 
+USING (true);
+
+-- Allow service role to insert new migration records
+CREATE POLICY "Allow service role to insert migration records" 
+ON strapi_migrations FOR INSERT 
+TO service_role 
+WITH CHECK (true);
+
+================================================================================
+File: students.sql
+Size: 1.85 kB
+================================================================================
+
+-- Students table definition
+CREATE TABLE students (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
+    headquarter_id UUID NOT NULL REFERENCES headquarters(id) ON DELETE RESTRICT,
+    season_id UUID NOT NULL REFERENCES seasons(id) ON DELETE RESTRICT,
+    enrollment_date DATE NOT NULL,
+    status TEXT CHECK (status IN ('active', 'prospect', 'graduated', 'inactive')) DEFAULT 'prospect',
+    program_progress_comments JSONB
+);
+
+CREATE INDEX idx_students_user_id ON students(user_id);
+CREATE INDEX idx_students_headquarter_id ON students(headquarter_id);
+CREATE INDEX idx_students_season_id ON students(season_id);
+
+-- Enable Row Level Security
+ALTER TABLE students ENABLE ROW LEVEL SECURITY;
+
+-- Policies for the students table
+
+-- SELECT: Own record, high level (>=80), same HQ, or assigned mentor/facilitator
+CREATE POLICY students_select_own_hq_high_mentor
+ON students FOR SELECT
+USING (
+    user_id = (select auth.uid()) OR
+    fn_get_current_role_level() >= 80 OR
+    headquarter_id = fn_get_current_hq_id()
+    -- todo
+);
+
+-- INSERT: Allow manager+ (>=40) to insert
+CREATE POLICY students_insert_manager
+ON students FOR INSERT
+WITH CHECK ( fn_get_current_role_level() >= 40 );
+
+-- UPDATE: Manager+ (>=40) or assigned mentor
+CREATE POLICY students_update_manager_mentor
+ON students FOR UPDATE
+USING (
+    fn_get_current_role_level() >= 40
+    -- TODO: Add logic for assigned mentors
+    -- Example:
+    -- OR id IN (SELECT student_id FROM companion_student_map WHERE companion_id = fn_get_current_collaborator_id())
+)
+WITH CHECK (
+    fn_get_current_role_level() >= 40
+    -- Add specific field checks here if needed
+);
+
+-- DELETE: Admin only (>=100)
+CREATE POLICY students_delete_admin
+ON students FOR DELETE
+USING ( fn_get_current_role_level() >= 100 );
+
+
+================================================================================
+File: student_attendance.sql
+Size: 6.06 kB
+================================================================================
+
+-- schemas/student_attendance.sql
+
+CREATE TABLE student_attendance (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    scheduled_workshop_id UUID NOT NULL REFERENCES scheduled_workshops(id) ON DELETE CASCADE, -- Cascade delete if workshop instance deleted
+    student_id UUID NOT NULL REFERENCES students(user_id) ON DELETE CASCADE, -- Cascade delete if student deleted
+    attendance_status TEXT NOT NULL CHECK (attendance_status IN ('present', 'absent')),
+    attendance_timestamp TIMESTAMPTZ DEFAULT NOW() NOT NULL, -- When the record was created/marked
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ,
+    -- A student can only have one attendance status record per workshop instance
+    CONSTRAINT uq_student_workshop_attendance UNIQUE (scheduled_workshop_id, student_id)
+);
+
+COMMENT ON TABLE student_attendance IS 'Tracks student attendance for specific scheduled workshop instances.';
+COMMENT ON COLUMN student_attendance.scheduled_workshop_id IS 'The specific workshop instance attended.';
+COMMENT ON COLUMN student_attendance.student_id IS 'The student whose attendance is being tracked.';
+COMMENT ON COLUMN student_attendance.attendance_status IS 'Attendance status (present, absent, excused).';
+COMMENT ON COLUMN student_attendance.attendance_timestamp IS 'Timestamp when attendance was recorded.';
+
+CREATE INDEX idx_student_attendance_workshop ON student_attendance(scheduled_workshop_id);
+CREATE INDEX idx_student_attendance_student ON student_attendance(student_id);
+
+CREATE TRIGGER handle_updated_at_student_attendance
+    BEFORE UPDATE ON student_attendance
+    FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
+
+-- Enable Row Level Security
+ALTER TABLE student_attendance ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies (Example - Adjust as needed)
+-- SELECT: Student sees own, Facilitator sees own workshop's, Manager Assistant+ sees own HQ's, Director+ sees all
+CREATE POLICY student_attendance_select_policy
+    ON student_attendance FOR SELECT
+    TO authenticated
+    USING (
+        student_id =(select auth.uid()) -- Student sees their own records
+        OR
+        -- Facilitator sees attendance for scheduled_workshops they facilitate
+        EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = (select auth.uid())
+        )
+        OR
+        -- Manager Assistant+ sees attendance for scheduled_workshops in their HQ
+        (fn_is_manager_assistant_or_higher() AND EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.headquarter_id = fn_get_current_hq_id()
+        ))
+        OR
+        fn_is_general_director_or_higher() -- Director+ sees all
+    );
+
+-- INSERT: Facilitator for own workshop, Manager Assistant+ for own HQ, Director+ for any
+CREATE POLICY student_attendance_insert_policy
+    ON student_attendance FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        -- Facilitator managing attendance for scheduled_workshops they facilitate
+        EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = (select auth.uid())
+        )
+        OR
+        -- Manager Assistant+ managing attendance for scheduled_workshops in their HQ
+        (fn_is_manager_assistant_or_higher() AND EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.headquarter_id = fn_get_current_hq_id()
+        ))
+        OR
+        fn_is_general_director_or_higher() -- Director+ managing all
+    );
+
+-- UPDATE: Facilitator for own workshop, Manager Assistant+ for own HQ, Director+ for any
+CREATE POLICY student_attendance_update_policy
+    ON student_attendance FOR UPDATE
+    TO authenticated
+    USING (
+        -- Facilitator managing attendance for scheduled_workshops they facilitate
+        EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = (select auth.uid())
+        )
+        OR
+        -- Manager Assistant+ managing attendance for scheduled_workshops in their HQ
+        (fn_is_manager_assistant_or_higher() AND EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.headquarter_id = fn_get_current_hq_id()
+        ))
+        OR
+        fn_is_general_director_or_higher() -- Director+ managing all
+    )
+    WITH CHECK (
+        -- Same check logic as USING for simplicity here
+        EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = (select auth.uid())
+        )
+        OR
+        (fn_is_manager_assistant_or_higher() AND EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.headquarter_id = fn_get_current_hq_id()
+        ))
+        OR
+        fn_is_general_director_or_higher()
+    );
+
+-- DELETE: Facilitator for own workshop, Manager Assistant+ for own HQ, Director+ for any
+CREATE POLICY student_attendance_delete_policy
+    ON student_attendance FOR DELETE
+    TO authenticated
+    USING (
+        -- Facilitator managing attendance for scheduled_workshops they facilitate
+        EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.facilitator_id = (select auth.uid())
+        )
+        OR
+        -- Manager Assistant+ managing attendance for scheduled_workshops in their HQ
+        (fn_is_manager_assistant_or_higher() AND EXISTS (
+            SELECT 1 FROM scheduled_workshops sw
+            WHERE sw.id = student_attendance.scheduled_workshop_id AND sw.headquarter_id = fn_get_current_hq_id()
+        ))
+        OR
+        fn_is_general_director_or_higher() -- Director+ managing all
+    );
+
+
+================================================================================
+File: workshop_triggers.sql
+Size: 2.34 kB
+================================================================================
+
+-- schemas/workshop_triggers.sql
+
+-- Function to check if a user is a valid facilitator for a given HQ
+-- Assumes 'collaborators' table links user_id to role_id and headquarter_id
+CREATE OR REPLACE FUNCTION fn_is_valid_facilitator_for_hq(p_user_id uuid, p_headquarter_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY INVOKER
+SET search_path = ''
+AS $$
+DECLARE
+    is_valid boolean := false;
+    facilitator_role_level integer := 20;
+BEGIN
+    -- Check if a collaborator exists, belongs to the HQ, and has the facilitator role level
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.collaborators c
+        JOIN public.roles r ON c.role_id = r.id
+        WHERE c.user_id = p_user_id
+          AND c.headquarter_id = p_headquarter_id
+          AND r.level >= facilitator_role_level
+    ) INTO is_valid;
+    RETURN is_valid;
+END;
+$$;
+
+COMMENT ON FUNCTION fn_is_valid_facilitator_for_hq(uuid, uuid) IS 'Checks if a given user_id is a collaborator with facilitator role level (or higher) within the specified headquarter_id.';
+
+-- Trigger function to validate facilitator on workshop schedule/update
+CREATE OR REPLACE FUNCTION trigger_validate_workshop_facilitator()
+RETURNS TRIGGER 
+SET search_path = ''
+AS $$
+BEGIN
+    -- Check on INSERT or if facilitator_id or headquarter_id is changed on UPDATE
+    IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND (NEW.facilitator_id IS DISTINCT FROM OLD.facilitator_id OR NEW.headquarter_id IS DISTINCT FROM OLD.headquarter_id)) THEN
+        IF NOT public.fn_is_valid_facilitator_for_hq(NEW.facilitator_id, NEW.headquarter_id) THEN
+            RAISE EXCEPTION 'User ID % is not a valid facilitator for headquarter ID %.', NEW.facilitator_id, NEW.headquarter_id;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION trigger_validate_workshop_facilitator() IS 'Trigger function for scheduled_workshops table to ensure the assigned facilitator_id is valid for the specified headquarter_id.';
+
+DROP TRIGGER IF EXISTS validate_facilitator_before_insert_update ON scheduled_workshops;
+
+CREATE TRIGGER validate_facilitator_before_insert_update
+    BEFORE INSERT OR UPDATE ON scheduled_workshops
+    FOR EACH ROW EXECUTE FUNCTION trigger_validate_workshop_facilitator();
+
+GRANT EXECUTE ON FUNCTION fn_is_valid_facilitator_for_hq(uuid, uuid) TO authenticated;
+

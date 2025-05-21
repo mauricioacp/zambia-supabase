@@ -2,7 +2,7 @@
 
 CREATE TABLE master_workshop_types (
     id SERIAL PRIMARY KEY,
-    master_name VARCHAR(35) NOT NULL UNIQUE, -- Official name from General Direction
+    master_name TEXT NOT NULL UNIQUE, -- Official name from General Direction
     master_description TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ

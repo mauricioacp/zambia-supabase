@@ -1,7 +1,7 @@
 -- Headquarters table definition
 CREATE TABLE headquarters (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(35) NOT NULL,
+    name TEXT NOT NULL,
     country_id UUID REFERENCES countries(id) ON DELETE RESTRICT,
     address TEXT,
     contact_info JSONB DEFAULT '{}',

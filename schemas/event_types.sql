@@ -2,9 +2,9 @@
 
 CREATE TABLE event_types (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(35) NOT NULL UNIQUE,
+    name TEXT NOT NULL UNIQUE,
     description TEXT,
-    title VARCHAR(35) NOT NULL,
+    title TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ
 );
