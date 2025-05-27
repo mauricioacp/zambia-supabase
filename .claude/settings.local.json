@@ -16,7 +16,9 @@
       "Bash(npx supabase:*)",
       "Bash(deno cache:*)",
       "Bash(deno lint:*)",
-      "Bash(deno fmt:*)"
+      "Bash(deno fmt:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }
