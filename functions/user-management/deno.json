@@ -1,0 +1,16 @@
+{
+	"tasks": {
+		"dev": "deno serve --watch -R main.ts",
+		"test": "SUPABASE_URL=http://localhost:54321 SUPABASE_ANON_KEY=mock-anon-key SUPABASE_SERVICE_ROLE_KEY=mock-service-key deno test --allow-all",
+		"cache": "deno cache main.ts"
+	},
+	"imports": {
+		"@std/assert": "jsr:@std/assert@1",
+		"@std/http": "jsr:@std/http@1",
+		"@std/crypto": "jsr:@std/crypto@1.0.4",
+		"hono": "jsr:@hono/hono@4",
+		"hono/middleware": "jsr:@hono/hono@4/middleware",
+		"zod": "https://deno.land/x/zod@v3.22.4/mod.ts",
+		"supabase": "https://esm.sh/@supabase/supabase-js@2.39.8"
+	}
+}
