@@ -5,6 +5,8 @@
     "@std/path": "jsr:@std/path@^1.0.9",
     "@std/assert": "jsr:@std/assert@1",
     "@std/fs": "jsr:@std/fs@^1.0.17",
+    "@std/cli": "jsr:@std/cli@^1.0.9",
+    "@std/fmt": "jsr:@std/fmt@^1.0.4",
     "supabase": "https://esm.sh/@supabase/supabase-js@2.39.8"
   },
   "compilerOptions": {
@@ -18,7 +20,11 @@
     "test:akademy": "cd functions/akademy && deno task test",
     "test:user-management": "cd functions/user-management && deno task test",
     "branch:feature": "deno run --allow-run scripts/create-feature-branch.ts",
-    "branch:hotfix": "deno run --allow-run scripts/create-feature-branch.ts --type=hotfix"
+    "branch:hotfix": "deno run --allow-run scripts/create-feature-branch.ts --type=hotfix",
+    "deploy:production": "deno run --allow-all scripts/deploy-production.ts",
+    "deploy:dry-run": "deno run --allow-all scripts/deploy-production.ts --dry-run",
+    "deploy:functions": "deno run --allow-all scripts/deploy-production.ts --functions-only",
+    "deploy:database": "deno run --allow-all scripts/deploy-production.ts --db-only"
   },
   "fmt": {
     "useTabs": true,
@@ -30,13 +36,10 @@
     "include": ["**/*.ts"]
   },
   "lint": {
-    "useTabs": true,
-    "lineWidth": 80,
-    "indentWidth": 4,
-    "semiColons": true,
-    "singleQuote": true,
-    "proseWrap": "preserve",
-    "include": ["**/*.ts"]
+    "include": ["**/*.ts"],
+    "rules": {
+      "tags": ["recommended"]
+    }
   }
 
 }

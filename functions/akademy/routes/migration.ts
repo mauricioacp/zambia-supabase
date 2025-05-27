@@ -20,7 +20,6 @@ interface AppConfig {
 
 const verifyPassword = (password: string): boolean => {
 	const superPassword = Deno.env.get('SUPER_PASSWORD');
-	console.log(superPassword);
 
 	if (!superPassword) {
 		console.error('SUPER_PASSWORD environment variable is not set');

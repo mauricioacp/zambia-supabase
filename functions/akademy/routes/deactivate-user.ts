@@ -11,7 +11,6 @@ export async function deactivateUser(c: Context): Promise<Response> {
 
 		const supabaseAdmin = createAdminSupabaseClient();
 
-		// Get user data to verify it exists
 		const { data: userData, error: userError } = await supabaseAdmin.auth.admin
 			.getUserById(validatedData.user_id);
 
@@ -19,7 +18,6 @@ export async function deactivateUser(c: Context): Promise<Response> {
 			throw new HTTPException(404, { message: 'User not found' });
 		}
 
-		// Update user to be disabled
 		const { error: updateError } = await supabaseAdmin.auth.admin
 			.updateUserById(validatedData.user_id, {
                 ban_duration : new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString() // 100 years from now
@@ -31,7 +29,6 @@ export async function deactivateUser(c: Context): Promise<Response> {
 			});
 		}
 
-		// Update agreements status to inactive
 		const { error: agreementError } = await supabaseAdmin
 			.from('agreements')
 			.update({ status: 'inactive' })

@@ -14,7 +14,9 @@
       "Bash(SUPABASE_URL=http://localhost:54321 SUPABASE_ANON_KEY=mock-anon-key SUPABASE_SERVICE_ROLE_KEY=mock-service-key deno eval \"\nimport app from ''./main.ts'';\nconst req = new Request(''http://localhost:8000/health'', { method: ''OPTIONS'' });\nconst res = await app.request(req);\nconsole.log(''Status:'', res.status);\nconsole.log(''Headers:'');\nfor (const [key, value] of res.headers.entries()) {\n  console.log(\\`  ${key}: ${value}\\`);\n}\n\")",
       "Bash(npx supabase functions:*)",
       "Bash(npx supabase:*)",
-      "Bash(deno cache:*)"
+      "Bash(deno cache:*)",
+      "Bash(deno lint:*)",
+      "Bash(deno fmt:*)"
     ],
     "deny": []
   }

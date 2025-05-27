@@ -343,3 +343,81 @@ npx supabase functions serve --debug
 - **CORS handling**: Configure CORS middleware for cross-origin requests
 - **Authentication**: Implement middleware for JWT validation and role-based access
 - **Error handling**: Use Hono's error handling and HTTPException for consistent responses
+
+## Production Deployment
+
+### Deployment Commands
+```bash
+# Full production deployment
+deno task deploy:production --project-ref PROJECT_ID
+
+# Preview deployment (dry run)
+deno task deploy:dry-run --project-ref PROJECT_ID
+
+# Deploy only Edge Functions
+deno task deploy:functions --project-ref PROJECT_ID
+
+# Deploy only database migrations
+deno task deploy:database --project-ref PROJECT_ID
+
+# Force deployment without prompts (CI/CD)
+deno task deploy:production --force --project-ref PROJECT_ID
+```
+
+### Prerequisites for Deployment
+1. **Environment Variables Required**:
+   ```bash
+   export SUPABASE_ACCESS_TOKEN="your_access_token"
+   export SUPABASE_DB_PASSWORD="your_db_password"
+   export SUPABASE_PROJECT_ID="your_project_ref"
+   ```
+
+2. **Required Software**:
+   - Supabase CLI (`npm install -g supabase`)
+   - Docker Desktop (for Edge Functions)
+   - Git (for version control verification)
+
+3. **Project Setup**:
+   ```bash
+   supabase login
+   supabase link --project-ref your_project_id
+   ```
+
+### Deployment Process
+The deployment script performs:
+1. **Preflight checks**: CLI tools, Docker, project linking, environment variables
+2. **Pre-deployment tests**: Unit tests and validation
+3. **Database deployment**: Migrations with `supabase db push`
+4. **Functions deployment**: Edge Functions with `supabase functions deploy --no-verify-jwt`
+5. **Post-deployment validation**: Health checks and verification
+
+### Security Configuration
+- **Functions deployed with `--no-verify-jwt`**: akademy function handles its own authentication
+- **Secrets management**: Environment variables deployed via `supabase secrets set --env-file .env`
+- **Never commit `.env` files**: Keep secrets in environment variables only
+
+### Rollback Procedures
+```bash
+# Database rollback (create reverse migration)
+supabase migration new rollback_changes
+supabase db push
+
+# Function rollback (deploy previous version)
+git checkout previous_commit_hash
+supabase functions deploy akademy
+git checkout main
+```
+
+### Monitoring and Validation
+```bash
+# Check function health
+curl https://your-project.supabase.co/functions/v1/akademy/health
+
+# View function logs
+supabase functions logs akademy
+
+# Check migration status
+supabase migration list --remote
+```
+
+See `docs/deployment-guide.md` for comprehensive deployment documentation.

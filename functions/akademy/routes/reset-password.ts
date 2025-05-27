@@ -11,7 +11,6 @@ export async function resetUserPassword(c: Context): Promise<Response> {
 
 		const supabaseAdmin = createAdminSupabaseClient();
 
-		// Find agreement with matching email, document_number, phone, first_name, last_name
 		const { data: agreement, error: agreementError } = await supabaseAdmin
 			.from('agreements')
 			.select('user_id, email')
@@ -29,7 +28,6 @@ export async function resetUserPassword(c: Context): Promise<Response> {
 			});
 		}
 
-		// Update user password using service role
 		const { error: passwordError } = await supabaseAdmin.auth.admin
 			.updateUserById(agreement.user_id, {
 				password: validatedData.new_password

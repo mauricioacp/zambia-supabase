@@ -1,8 +1,0 @@
-{
-	"tasks": {
-		"dev": "deno serve --watch -R main.ts",
-		"test": "SUPABASE_URL=http://localhost:54321 SUPABASE_ANON_KEY=mock-anon-key SUPABASE_SERVICE_ROLE_KEY=mock-service-key deno test --allow-all",
-		"cache": "deno cache main.ts"
-	},
-	"importMap": "../import_map.json"
-}
