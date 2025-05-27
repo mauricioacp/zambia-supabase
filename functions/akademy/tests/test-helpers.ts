@@ -306,10 +306,16 @@ export class ApiTestHelper {
 // Setup test environment
 export async function setupTestEnvironment(): Promise<TestEnvironment> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "http://localhost:54321";
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "test-anon-key";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-    "test-service-key";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const functionUrl = "http://localhost:54321/functions/v1/akademy";
+
+  // Validate environment variables
+  if (!anonKey || !serviceKey) {
+    throw new Error(
+      "Missing required environment variables: SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY must be set",
+    );
+  }
 
   const supabase = createClient(supabaseUrl, anonKey);
   const adminSupabase = createClient(supabaseUrl, serviceKey);

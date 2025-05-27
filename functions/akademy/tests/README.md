@@ -49,10 +49,19 @@ with multiple testing strategies:
    npx supabase functions serve
    ```
 
-3. **Environment variables set**:
-   - `SUPABASE_URL`: Local Supabase URL
-   - `SUPABASE_ANON_KEY`: Anonymous key
-   - `SUPABASE_SERVICE_ROLE_KEY`: Service role key
+3. **Environment variables configured**:
+   Create a `.env` file in the project root with:
+   ```bash
+   # Copy from .env.example and fill with your values
+   cp .env.example .env
+   
+   # Get these values from `supabase start` output
+   SUPABASE_URL=http://127.0.0.1:54321
+   SUPABASE_ANON_KEY=your_anon_key_from_supabase_start
+   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_from_supabase_start
+   ```
+   
+   **⚠️ SECURITY NOTE**: Never commit JWT tokens or service keys to git!
 
 ### Database Requirements
 

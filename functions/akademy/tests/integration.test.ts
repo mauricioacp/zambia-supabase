@@ -5,11 +5,18 @@ import { Database } from "../../../types/supabase.type.ts";
 // Test configuration
 const TEST_CONFIG = {
   supabaseUrl: Deno.env.get("SUPABASE_URL") || "http://localhost:54321",
-  supabaseAnonKey: Deno.env.get("SUPABASE_ANON_KEY") || "test-anon-key",
-  supabaseServiceKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
-    "test-service-key",
+  supabaseAnonKey: Deno.env.get("SUPABASE_ANON_KEY"),
+  supabaseServiceKey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"),
   functionUrl: "http://localhost:54321/functions/v1/akademy",
 };
+
+// Validate environment variables
+if (!TEST_CONFIG.supabaseAnonKey || !TEST_CONFIG.supabaseServiceKey) {
+  console.error("❌ Missing required environment variables:");
+  console.error("   SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY must be set");
+  console.error("   Create a .env file with your local Supabase keys");
+  Deno.exit(1);
+}
 
 interface TestUser {
   email: string;

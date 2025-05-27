@@ -395,6 +395,8 @@ The deployment script performs:
 - **Functions deployed with `--no-verify-jwt`**: akademy function handles its own authentication
 - **Secrets management**: Environment variables deployed via `supabase secrets set --env-file .env`
 - **Never commit `.env` files**: Keep secrets in environment variables only
+- **⚠️ CRITICAL**: Never hardcode JWT tokens, service keys, or API keys in code or configuration files
+- **Use `.env.example`**: Provide template files without actual secrets
 
 ### Rollback Procedures
 ```bash
