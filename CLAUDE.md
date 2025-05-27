@@ -17,8 +17,7 @@ supabase start
 supabase db reset
 
 # Serve Edge Functions (choose appropriate env file)
-supabase functions serve --env-file ./functions/akademy-app/.env
-supabase functions serve --env-file ./functions/strapi-migration/.env
+supabase functions serve --env-file ./functions/.env
 
 # Full environment reset (automated)
 deno task generate:dev:environment
@@ -39,6 +38,9 @@ deno task generate:supabase:types
 ```bash
 # Run all tests
 deno task test
+
+# Run user-management function tests specifically
+deno task test:user-management
 
 # Create test users for all roles (generates credentials.json)
 deno task generate:test:users
@@ -68,7 +70,14 @@ deno task branch:hotfix "auth bug fix"
 cd functions/akademy-app
 deno task dev          # Watch mode development
 
-# Test endpoints at: http://localhost:54321/functions/v1/akademy-app
+# User Management function (Hono-based user operations)
+cd functions/user-management
+deno task dev          # Watch mode development
+deno task test         # Run function tests
+
+# Test endpoints at:
+# http://localhost:54321/functions/v1/akademy-app
+# http://localhost:54321/functions/v1/user-management
 ```
 
 ## Architecture Patterns
@@ -99,8 +108,9 @@ schema_paths = [
 ### Edge Functions Structure
 - **akademy-app**: Admin CRUD API with role-based endpoints (`/admin/*`, `/super-admin`)
 - **strapi-migration**: Data migration function with dual authentication (JWT + super password)
+- **user-management**: Hono-based user operations API with JWT authentication and role-based access control
 
-Both functions use middleware pattern with authentication layers and shared CORS utilities.
+All functions use middleware pattern with authentication layers and shared CORS utilities. The user-management function specifically uses Hono framework for modern routing and middleware handling.
 
 ### Authentication Patterns
 - **Admin routes**: Secret header validation (`x-admin-secret`)
@@ -136,6 +146,39 @@ Functions require appropriate environment files for authentication.
 - Generated types: `types/supabase.type.ts`
 - Zod schemas for validation in `functions/*/schemas/`
 - Strict TypeScript enabled across project
+
+### User Management Function (Hono-based)
+The user-management function provides role-based user operations with automatic password generation and role-level restrictions.
+
+#### Endpoints and Access Levels:
+- **Create User** (`POST /create-user`): Level 30+ required
+  - Creates users from prospect agreements
+  - Auto-generates passwords
+  - Users can only create equal or lower role levels
+  - Returns comprehensive user data including generated password
+  
+- **Reset Password** (`POST /reset-password`): Level 30+ required
+  - Validates identity using email, document_number, phone, first_name, last_name
+  - Updates password using service role key
+  
+- **Deactivate User** (`POST /deactivate-user`): Level 50+ required
+  - Bans user account (100 years)
+  - Updates associated agreement status to inactive
+
+#### Key Features:
+- Built with Hono framework for modern routing and middleware
+- JWT-based authentication with role level validation
+- Comprehensive Zod schema validation
+- Automatic password generation for user creation
+- Role hierarchy enforcement (users cannot create higher-level roles)
+- Full test coverage with mock authentication for testing
+
+#### Development:
+```bash
+cd functions/user-management
+deno task dev    # Start development server
+deno task test   # Run comprehensive tests
+```
 
 ## Project-Specific Conventions
 

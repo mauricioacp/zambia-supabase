@@ -1,7 +1,7 @@
 import {
 	createClient,
 	SupabaseClient,
-} from 'https://esm.sh/@supabase/supabase-js@2.39.8';
+} from 'supabase';
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 import { fetchAllStrapiAgreements } from './services/strapiService.ts';

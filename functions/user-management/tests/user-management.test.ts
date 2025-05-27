@@ -238,8 +238,7 @@ Deno.test('CORS headers are present', async () => {
 			'Origin': 'http://localhost:3000',
 		},
 	});
-	
-	// Should have CORS headers
+
 	assertExists(res.headers.get('Access-Control-Allow-Origin'));
 	assertExists(res.headers.get('Access-Control-Allow-Methods'));
 	assertExists(res.headers.get('Access-Control-Allow-Headers'));
