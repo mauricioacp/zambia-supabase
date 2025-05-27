@@ -19,7 +19,7 @@ supabase db reset
 # Serve Edge Functions (choose appropriate env file)
 supabase functions serve --env-file ./functions/.env
 
-# Full environment reset (automated)
+# Full environment reset (automated) - includes Strapi migration
 deno task generate:dev:environment
 ```
 
@@ -38,6 +38,9 @@ deno task generate:supabase:types
 ```bash
 # Run all tests
 deno task test
+
+# Run akademy function tests specifically
+deno task test:akademy
 
 # Run user-management function tests specifically
 deno task test:user-management
@@ -66,17 +69,18 @@ deno task branch:hotfix "auth bug fix"
 
 ### Function Development
 ```bash
-# Akademy App function (admin API)
-cd functions/akademy-app
+# Akademy function (unified migration and user management API)
+cd functions/akademy
 deno task dev          # Watch mode development
+deno task test         # Run function tests
 
-# User Management function (Hono-based user operations)
+# User Management function (Hono-based user operations) 
 cd functions/user-management
 deno task dev          # Watch mode development
 deno task test         # Run function tests
 
 # Test endpoints at:
-# http://localhost:54321/functions/v1/akademy-app
+# http://localhost:54321/functions/v1/akademy
 # http://localhost:54321/functions/v1/user-management
 ```
 
@@ -106,16 +110,17 @@ schema_paths = [
 ```
 
 ### Edge Functions Structure
-- **akademy-app**: Admin CRUD API with role-based endpoints (`/admin/*`, `/super-admin`)
-- **strapi-migration**: Data migration function with dual authentication (JWT + super password)
-- **user-management**: Hono-based user operations API with JWT authentication and role-based access control
+- **akademy**: Unified function combining data migration and user management with Hono framework
+  - Migration endpoint: `/migrate` (dual authentication: JWT + super password)
+  - User management endpoints: `/create-user`, `/reset-password`, `/deactivate-user` (JWT + role-based)
+- **user-management**: Legacy Hono-based user operations API (maintained for compatibility)
 
-All functions use middleware pattern with authentication layers and shared CORS utilities. The user-management function specifically uses Hono framework for modern routing and middleware handling.
+The akademy function serves as the primary API using Hono framework for modern routing, middleware patterns, and centralized authentication layers with shared CORS utilities.
 
 ### Authentication Patterns
-- **Admin routes**: Secret header validation (`x-admin-secret`)
-- **Super admin**: JWT token validation  
-- **Migration function**: Dual auth (JWT + super password with timing-safe comparison)
+- **Migration endpoints**: Dual auth (JWT + super password with timing-safe comparison)
+- **User management endpoints**: JWT token validation with role-level enforcement
+- **Role hierarchy**: Users can only create/modify equal or lower role levels
 - **Database**: Row-level security (RLS) policies throughout
 
 ### Testing Strategy
@@ -137,29 +142,37 @@ Local endpoints: `http://localhost:54321/functions/v1/{function-name}`
 Functions require appropriate environment files for authentication.
 
 ### Migration Development
-- Strapi migration uses incremental timestamp-based tracking
+- Akademy function `/migrate` endpoint uses incremental timestamp-based tracking
 - Dual authentication required (JWT + super password)
 - Migration history tracked in `strapi_migrations` table
-- Maps external Strapi data to internal schema
+- Maps external Strapi data to internal schema with data normalization
+- Batch processing and duplicate detection for large datasets
 
 ### Type Safety
 - Generated types: `types/supabase.type.ts`
 - Zod schemas for validation in `functions/*/schemas/`
 - Strict TypeScript enabled across project
 
-### User Management Function (Hono-based)
-The user-management function provides role-based user operations with automatic password generation and role-level restrictions.
+### Akademy Function (Unified API)
+The primary function combining data migration and user management with role-based access control.
 
-#### Endpoints and Access Levels:
+#### Migration Endpoints:
+- **Migrate from Strapi** (`POST /migrate`): Dual auth required (JWT + super password)
+  - Incremental data migration with timestamp tracking
+  - Data normalization and duplicate detection
+  - Comprehensive error handling and migration history
+  - Returns detailed statistics and processed data
+
+#### User Management Endpoints:
 - **Create User** (`POST /create-user`): Level 30+ required
   - Creates users from prospect agreements
   - Auto-generates passwords
-  - Users can only create equal or lower role levels
+  - Role hierarchy enforcement (cannot create higher-level roles)
   - Returns comprehensive user data including generated password
   
 - **Reset Password** (`POST /reset-password`): Level 30+ required
-  - Validates identity using email, document_number, phone, first_name, last_name
-  - Updates password using service role key
+  - Identity verification using multiple data points
+  - Service role password updates
   
 - **Deactivate User** (`POST /deactivate-user`): Level 50+ required
   - Bans user account (100 years)
@@ -167,18 +180,21 @@ The user-management function provides role-based user operations with automatic 
 
 #### Key Features:
 - Built with Hono framework for modern routing and middleware
-- JWT-based authentication with role level validation
-- Comprehensive Zod schema validation
-- Automatic password generation for user creation
-- Role hierarchy enforcement (users cannot create higher-level roles)
-- Full test coverage with mock authentication for testing
+- Dual authentication patterns for different endpoint types
+- Comprehensive Zod schema validation throughout
+- Automatic password generation and role hierarchy enforcement
+- Full test coverage with authentication mocking
+- Centralized error handling and CORS configuration
 
 #### Development:
 ```bash
-cd functions/user-management
+cd functions/akademy
 deno task dev    # Start development server
 deno task test   # Run comprehensive tests
 ```
+
+### Legacy User Management Function (Compatibility)
+Maintained for backward compatibility - use akademy function for new development.
 
 ## Project-Specific Conventions
 
@@ -249,3 +265,81 @@ CREATE TRIGGER handle_updated_at_table_name
     BEFORE UPDATE ON table_name
     FOR EACH ROW EXECUTE PROCEDURE moddatetime(updated_at);
 ```
+
+## Supabase Edge Functions Development
+
+### Critical Function Configuration Rules
+
+#### Lockfile Management
+- **Remove incompatible lockfiles**: Edge Runtime may not support latest Deno lockfile versions
+- **Safe approach**: Delete `deno.lock` files if getting "Unsupported lockfile version" errors
+- **Auto-regeneration**: Supabase will regenerate compatible lockfiles during deployment
+
+#### Import Map Configuration
+- **Function-specific imports**: Each function should have its own `deno.json` with `imports` section
+- **Avoid shared import maps**: Don't use `importMap` pointing to shared files in production
+- **Required dependencies**:
+  ```json
+  {
+    "imports": {
+      "@supabase/supabase-js": "jsr:@supabase/supabase-js@2",
+      "@std/crypto": "jsr:@std/crypto@1.0.4",
+      "@std/crypto/timing-safe-equal": "jsr:@std/crypto@1.0.4/timing-safe-equal",
+      "@std/encoding/base64": "jsr:@std/encoding@1/base64",
+      "hono": "jsr:@hono/hono@4",
+      "hono/cors": "jsr:@hono/hono@4/cors",
+      "hono/http-exception": "jsr:@hono/hono@4/http-exception",
+      "zod": "https://deno.land/x/zod@v3.22.4/mod.ts"
+    }
+  }
+  ```
+
+#### Function Export Format
+- **Use Deno.serve()**: Functions must use `Deno.serve(app.fetch)` format, not default exports
+- **Entry point**: Use `main.ts` or `index.ts` as entry point (configure in `config.toml`)
+
+#### Route Path Handling
+- **Function name prefix**: Supabase passes requests with function name in path
+- **Route definition**: Routes must include function name: `app.get('/akademy/health', ...)`
+- **URL structure**: `http://localhost:54321/functions/v1/akademy/health` → path = `/akademy/health`
+
+#### Configuration in config.toml
+```toml
+[functions.function-name]
+enabled = true
+verify_jwt = false  # Set based on your auth needs
+entrypoint = "./functions/function-name/main.ts"
+# Do NOT include import_map if using function-specific deno.json
+```
+
+### Function Development Workflow
+
+#### Debugging Steps
+1. **Start with minimal function**: Test basic functionality before adding complex imports
+2. **Add imports incrementally**: Import modules one by one to identify problematic dependencies
+3. **Test each change**: Verify function boots and responds after each modification
+4. **Use debug routes**: Add catch-all routes to understand path structure during development
+
+#### Testing Commands
+```bash
+# Serve functions locally
+npx supabase functions serve --no-verify-jwt
+
+# Test basic connectivity
+curl http://127.0.0.1:54321/functions/v1/function-name/health
+
+# Check function boot logs for errors
+npx supabase functions serve --debug
+```
+
+#### Common Boot Errors and Solutions
+- **"Unsupported lockfile version"**: Delete `deno.lock` file
+- **"Worker failed to boot"**: Check import map configuration and entry point
+- **"Module not found"**: Verify function-specific imports in `deno.json`
+- **"Function not found"**: Check function is enabled in `config.toml`
+
+### Hono Framework Integration
+- **Route prefixes**: All routes must include function name prefix
+- **CORS handling**: Configure CORS middleware for cross-origin requests
+- **Authentication**: Implement middleware for JWT validation and role-based access
+- **Error handling**: Use Hono's error handling and HTTPException for consistent responses
