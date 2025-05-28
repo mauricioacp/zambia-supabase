@@ -3,7 +3,7 @@ CREATE TABLE processes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    name TEXT NOT NULL,
+    name VARCHAR(50) NOT NULL,
     description TEXT,
     type TEXT,
     status TEXT CHECK (status IN ('active', 'inactive')) DEFAULT 'active', -- SUGGESTION: Consider ENUM for status for type safety.

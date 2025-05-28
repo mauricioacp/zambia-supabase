@@ -1,7 +1,7 @@
 -- schemas/master_workshop_types.sql
 
 CREATE TABLE master_workshop_types (
-    id SERIAL PRIMARY KEY, -- Simple integer ID for the master type
+    id SERIAL PRIMARY KEY,
     master_name TEXT NOT NULL UNIQUE, -- Official name from General Direction
     master_description TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,

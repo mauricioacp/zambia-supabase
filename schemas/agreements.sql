@@ -6,7 +6,7 @@ CREATE TABLE agreements
     headquarter_id             UUID REFERENCES headquarters (id) ON DELETE RESTRICT NOT NULL,
     season_id                  UUID REFERENCES seasons (id)                         NOT NULL,
     role_id                    UUID                                                 NOT NULL REFERENCES roles (id) ON DELETE RESTRICT,
-    status                     TEXT CHECK (status IN ('active', 'graduated', 'inactive', 'prospect')) DEFAULT 'prospect',
+    status                     TEXT CHECK (status IN ('active', 'inactive', 'prospect', 'graduated')) DEFAULT 'prospect',
     email                      TEXT                                                 NOT NULL,
     document_number            TEXT,
     phone                      TEXT,

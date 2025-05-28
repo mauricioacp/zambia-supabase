@@ -1,5 +1,235 @@
 -- Functions for dashboard statistics
 
+CREATE OR REPLACE FUNCTION get_dashboard_agreement_review_statistics()
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    SECURITY INVOKER
+    SET search_path = ''
+AS
+$$
+DECLARE
+    result jsonb;
+BEGIN
+    result := jsonb_build_object(
+            'students', (WITH stats
+                                  AS (SELECT COUNT(*)
+                                             FILTER (WHERE a.status = 'prospect' AND r.code = 'student')  AS pending,
+                                             COUNT(*)
+                                             FILTER (WHERE a.status != 'prospect' AND r.code = 'student') AS reviewed,
+                                             COUNT(*) FILTER (WHERE r.code = 'student')                   AS total
+                                      FROM public.agreements a
+                                               JOIN public.roles r ON a.role_id = r.id)
+                         SELECT jsonb_build_object(
+                                        'pending', pending,
+                                        'reviewed', reviewed,
+                                        'total', total,
+                                        'percentage_reviewed', CASE
+                                                                   WHEN total > 0
+                                                                       THEN ROUND((reviewed::numeric / total::numeric) * 100, 2)
+                                                                   ELSE 0
+                                            END
+                                )
+                         FROM stats),
+            'collaborators', (WITH stats
+                                       AS (SELECT COUNT(*)
+                                                  FILTER (WHERE a.status = 'prospect' AND r.level >= 10 AND r.level < 50)  AS pending,
+                                                  COUNT(*)
+                                                  FILTER (WHERE a.status != 'prospect' AND r.level >= 10 AND r.level < 50) AS reviewed,
+                                                  COUNT(*) FILTER (WHERE r.level >= 10 AND r.level < 50)                   AS total
+                                           FROM public.agreements a
+                                                    JOIN public.roles r ON a.role_id = r.id)
+                              SELECT jsonb_build_object(
+                                             'pending', pending,
+                                             'reviewed', reviewed,
+                                             'total', total,
+                                             'percentage_reviewed', CASE
+                                                                        WHEN total > 0
+                                                                            THEN ROUND((reviewed::numeric / total::numeric) * 100, 2)
+                                                                        ELSE 0
+                                                 END
+                                     )
+                              FROM stats),
+            'konsejo_members', (WITH stats
+                                         AS (SELECT COUNT(*)
+                                                    FILTER (WHERE a.status = 'prospect' AND r.level >= 80)  AS pending,
+                                                    COUNT(*)
+                                                    FILTER (WHERE a.status != 'prospect' AND r.level >= 80) AS reviewed,
+                                                    COUNT(*) FILTER (WHERE r.level >= 80)                   AS total
+                                             FROM public.agreements a
+                                                      JOIN public.roles r ON a.role_id = r.id)
+                                SELECT jsonb_build_object(
+                                               'pending', pending,
+                                               'reviewed', reviewed,
+                                               'total', total,
+                                               'percentage_reviewed', CASE
+                                                                          WHEN total > 0
+                                                                              THEN ROUND((reviewed::numeric / total::numeric) * 100, 2)
+                                                                          ELSE 0
+                                                   END
+                                       )
+                                FROM stats),
+            'directors', (WITH stats
+                                   AS (SELECT COUNT(*)
+                                              FILTER (WHERE a.status = 'prospect' AND r.level >= 50 AND r.level < 80)  AS pending,
+                                              COUNT(*)
+                                              FILTER (WHERE a.status != 'prospect' AND r.level >= 50 AND r.level < 80) AS reviewed,
+                                              COUNT(*) FILTER (WHERE r.level >= 50 AND r.level < 80)                   AS total
+                                       FROM public.agreements a
+                                                JOIN public.roles r ON a.role_id = r.id)
+                          SELECT jsonb_build_object(
+                                         'pending', pending,
+                                         'reviewed', reviewed,
+                                         'total', total,
+                                         'percentage_reviewed', CASE
+                                                                    WHEN total > 0
+                                                                        THEN ROUND((reviewed::numeric / total::numeric) * 100, 2)
+                                                                    ELSE 0
+                                             END
+                                 )
+                          FROM stats),
+            'facilitators', (WITH stats
+                                      AS (SELECT COUNT(*)
+                                                 FILTER (WHERE a.status = 'prospect' AND r.code = 'facilitator')  AS pending,
+                                                 COUNT(*)
+                                                 FILTER (WHERE a.status != 'prospect' AND r.code = 'facilitator') AS reviewed,
+                                                 COUNT(*) FILTER (WHERE r.code = 'facilitator')                   AS total
+                                          FROM public.agreements a
+                                                   JOIN public.roles r ON a.role_id = r.id)
+                             SELECT jsonb_build_object(
+                                            'pending', pending,
+                                            'reviewed', reviewed,
+                                            'total', total,
+                                            'percentage_reviewed', CASE
+                                                                       WHEN total > 0
+                                                                           THEN ROUND((reviewed::numeric / total::numeric) * 100, 2)
+                                                                       ELSE 0
+                                                END
+                                    )
+                             FROM stats),
+            'companions', (WITH stats
+                                    AS (SELECT COUNT(*)
+                                               FILTER (WHERE a.status = 'prospect' AND r.code = 'companion')  AS pending,
+                                               COUNT(*)
+                                               FILTER (WHERE a.status != 'prospect' AND r.code = 'companion') AS reviewed,
+                                               COUNT(*) FILTER (WHERE r.code = 'companion')                   AS total
+                                        FROM public.agreements a
+                                                 JOIN public.roles r ON a.role_id = r.id)
+                           SELECT jsonb_build_object(
+                                          'pending', pending,
+                                          'reviewed', reviewed,
+                                          'total', total,
+                                          'percentage_reviewed', CASE
+                                                                     WHEN total > 0
+                                                                         THEN ROUND((reviewed::numeric / total::numeric) * 100, 2)
+                                                                     ELSE 0
+                                              END
+                                  )
+                           FROM stats),
+            'overall',
+            (WITH stats AS (SELECT COUNT(*) FILTER (WHERE a.status = 'prospect')  AS pending,
+                                   COUNT(*) FILTER (WHERE a.status != 'prospect') AS reviewed,
+                                   COUNT(*)                                       AS total
+                            FROM public.agreements a)
+             SELECT jsonb_build_object(
+                            'pending', pending,
+                            'reviewed', reviewed,
+                            'total', total,
+                            'percentage_reviewed', CASE
+                                                       WHEN total > 0
+                                                           THEN ROUND((reviewed::numeric / total::numeric) * 100, 2)
+                                                       ELSE 0
+                                END
+                    )
+             FROM stats)
+              );
+
+    RETURN result;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_dashboard_agreement_review_statistics() TO authenticated;
+
+CREATE OR REPLACE FUNCTION get_dashboard_statistics()
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    SECURITY INVOKER
+    SET search_path = ''
+AS
+$$
+DECLARE
+    result jsonb;
+BEGIN
+    result := jsonb_build_object(
+            'countries', (SELECT jsonb_build_object(
+                                         'total', COUNT(*),
+                                         'active', COUNT(*) FILTER (WHERE status = 'active'),
+                                         'inactive', COUNT(*) FILTER (WHERE status = 'inactive')
+                                 )
+                          FROM public.countries),
+            'headquarters', (SELECT jsonb_build_object(
+                                            'total', COUNT(*),
+                                            'active', COUNT(*) FILTER (WHERE status = 'active'),
+                                            'inactive', COUNT(*) FILTER (WHERE status = 'inactive')
+                                    )
+                             FROM public.headquarters),
+            'collaborators', (SELECT jsonb_build_object(
+                                             'total', COUNT(*),
+                                             'active', COUNT(*) FILTER (WHERE status = 'active'),
+                                             'inactive',
+                                             COUNT(*) FILTER (WHERE status = 'inactive'),
+                                             'standby', COUNT(*) FILTER (WHERE status = 'standby')
+                                     )
+                              FROM public.collaborators),
+            'students', (SELECT jsonb_build_object(
+                                        'total', COUNT(*),
+                                        'active', COUNT(*) FILTER (WHERE status = 'active'),
+                                        'inactive', COUNT(*) FILTER (WHERE status != 'active')
+                                )
+                         FROM public.students),
+            'konsejo_members', (SELECT jsonb_build_object(
+                                               'total', COUNT(*),
+                                               'active',
+                                               COUNT(*) FILTER (WHERE c.status = 'active'),
+                                               'inactive',
+                                               COUNT(*) FILTER (WHERE c.status != 'active')
+                                       )
+                                FROM public.collaborators c
+                                         JOIN public.roles r ON c.role_id = r.id
+                                WHERE r.level >= 80),
+            'directors', (SELECT jsonb_build_object(
+                                         'total', COUNT(*),
+                                         'active', COUNT(*) FILTER (WHERE c.status = 'active'),
+                                         'inactive', COUNT(*) FILTER (WHERE c.status != 'active')
+                                 )
+                          FROM public.collaborators c
+                                   JOIN public.roles r ON c.role_id = r.id
+                          WHERE r.level >= 50
+                            AND r.level < 80),
+            'facilitators', (SELECT jsonb_build_object(
+                                            'total', COUNT(*),
+                                            'active', COUNT(*) FILTER (WHERE c.status = 'active'),
+                                            'inactive', COUNT(*) FILTER (WHERE c.status != 'active')
+                                    )
+                             FROM public.collaborators c
+                                      JOIN public.roles r ON c.role_id = r.id
+                             WHERE r.code = 'facilitator'),
+            'companions', (SELECT jsonb_build_object(
+                                          'total', COUNT(*),
+                                          'active', COUNT(*) FILTER (WHERE c.status = 'active'),
+                                          'inactive', COUNT(*) FILTER (WHERE c.status != 'active')
+                                  )
+                           FROM public.collaborators c
+                                    JOIN public.roles r ON c.role_id = r.id
+                           WHERE r.code = 'companion')
+              );
+
+    RETURN result;
+END;
+$$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION get_dashboard_statistics() TO authenticated;
+
 -- Function to get global dashboard statistics (accessible only by roles >= 80)
 CREATE OR REPLACE FUNCTION get_global_dashboard_stats()
     RETURNS jsonb
@@ -367,7 +597,7 @@ CREATE OR REPLACE FUNCTION get_user_dashboard_stats(target_user_id uuid)
     RETURNS jsonb
     LANGUAGE plpgsql
     SECURITY DEFINER
-    SET SEARCH_PATH =''
+    SET SEARCH_PATH = ''
 AS
 $$
 DECLARE
@@ -724,13 +954,13 @@ BEGIN
             WHERE csm.companion_id = caller_id),
              StudentWorkshopAttendance AS (
                  -- Get attendance records for workshops
-                 SELECT s.user_id                                                    as student_id,
+                 SELECT s.user_id                                       as student_id,
                         s.headquarter_id,
-                        a.name                                                       as student_first_name,
-                        a.last_name                                                  as student_last_name,
-                        COUNT(sa.id)                                                 as total_workshops,
+                        a.name                                          as student_first_name,
+                        a.last_name                                     as student_last_name,
+                        COUNT(sa.id)                                    as total_workshops,
                         COUNT(sa.id)
-                        FILTER (WHERE sa.attendance_status = 'present')              as attended_workshops
+                        FILTER (WHERE sa.attendance_status = 'present') as attended_workshops
                  FROM public.students s
                           JOIN AssignedStudents ast ON s.user_id = ast.student_id
                           JOIN public.agreements a ON s.user_id = a.user_id
@@ -986,7 +1216,7 @@ CREATE OR REPLACE FUNCTION get_student_trend_by_quarter(quarters_back integer DE
     RETURNS jsonb
     LANGUAGE plpgsql
     SECURITY DEFINER
-    SET SEARCH_PATH =''
+    SET SEARCH_PATH = ''
 AS
 $$
 DECLARE
@@ -1192,11 +1422,11 @@ BEGIN
                                   WHERE r.name = 'Facilitator'
                                     AND a.status = 'active'
                                   GROUP BY a.headquarter_id, a.user_id),
-         hq_role_stats AS (SELECT h.id                                                          as hq_id,
-                                  h.name                                                        as hq_name,
-                                  COUNT(DISTINCT fhr.user_id)                                   as total_facilitators,
+         hq_role_stats AS (SELECT h.id                              as hq_id,
+                                  h.name                            as hq_name,
+                                  COUNT(DISTINCT fhr.user_id)       as total_facilitators,
                                   COUNT(DISTINCT fhr.user_id)
-                                  FILTER (WHERE fhr.role_count > 1)                             as facilitators_multiple_roles
+                                  FILTER (WHERE fhr.role_count > 1) as facilitators_multiple_roles
                            FROM public.headquarters h
                                     LEFT JOIN facilitator_hq_roles fhr ON h.id = fhr.headquarter_id
                            GROUP BY h.id, h.name)
@@ -1236,190 +1466,190 @@ $$;
 -- Grant execute permission
 GRANT EXECUTE ON FUNCTION get_facilitator_multiple_roles_stats() TO authenticated;
 
--- NEW FUNCTION: Get workshop attendance statistics by headquarter
-CREATE OR REPLACE FUNCTION get_workshop_attendance_stats(target_hq_id uuid DEFAULT NULL, season_id uuid DEFAULT NULL)
-    RETURNS jsonb
-    LANGUAGE plpgsql
-    SECURITY DEFINER
-    SET SEARCH_PATH =''
-AS
-$$
-DECLARE
-    current_role_level  integer;
-    current_user_hq_id  uuid;
-    is_authorized       boolean := false;
-    result_data         jsonb;
-    workshop_attendance jsonb;
-    workshop_types      jsonb;
-BEGIN
-    -- Get current user's role level and HQ ID
-    current_role_level := public.fn_get_current_role_level();
-    current_user_hq_id := public.fn_get_current_hq_id();
-
-    -- Permission Check
-    IF target_hq_id IS NULL THEN
-        -- Global stats require level 80+
-        IF current_role_level >= 80 THEN
-            is_authorized := true;
-        END IF;
-    ELSE
-        -- HQ-specific stats require level 80+ OR level 50+ and in the same HQ
-        IF current_role_level >= 80 OR
-           (current_role_level >= 50 AND target_hq_id = current_user_hq_id) THEN
-            is_authorized := true;
-        END IF;
-    END IF;
-
-    IF NOT is_authorized THEN
-        RAISE EXCEPTION 'Insufficient privileges to access workshop attendance statistics.';
-    END IF;
-
-    -- Default to current active season if none specified
-    IF season_id IS NULL THEN
-        SELECT id
-        INTO season_id
-        FROM public.seasons
-        WHERE status = 'active'
-        ORDER BY start_date DESC
-        LIMIT 1;
-    END IF;
-
-    -- Calculate workshop attendance statistics
-    IF target_hq_id IS NULL THEN
-        -- Global stats across all headquarters
-
-        -- By workshop type
-        SELECT jsonb_agg(
-                       jsonb_build_object(
-                               'workshop_type', mwt.name,
-                               'total_workshops', COUNT(DISTINCT sw.id),
-                               'total_attendances', COUNT(sa.id),
-                               'present_count',
-                               COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'present'),
-                               'absent_count',
-                               COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'absent'),
-                               'attendance_rate', CASE
-                                                      WHEN COUNT(sa.id) > 0 THEN
-                                                          ROUND((COUNT(sa.id)
-                                                                 FILTER (WHERE sa.attendance_status = 'present')::numeric /
-                                                                 COUNT(sa.id)) * 100, 2)
-                                                      ELSE 0
-                                   END
-                       )
-                       ORDER BY COUNT(DISTINCT sw.id) DESC
-               )
-        INTO workshop_types
-        FROM public.scheduled_workshops sw
-                 JOIN public.master_workshop_types mwt ON sw.master_workshop_type_id = mwt.id
-                 LEFT JOIN public.student_attendance sa ON sw.id = sa.scheduled_workshop_id
-        WHERE sw.season_id = season_id
-        GROUP BY mwt.name;
-
-        -- By headquarter
-        SELECT jsonb_agg(
-                       jsonb_build_object(
-                               'headquarter_id', h.id,
-                               'headquarter_name', h.name,
-                               'total_workshops', COUNT(DISTINCT sw.id),
-                               'total_attendances', COUNT(sa.id),
-                               'present_count',
-                               COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'present'),
-                               'absent_count',
-                               COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'absent'),
-                               'attendance_rate', CASE
-                                                      WHEN COUNT(sa.id) > 0 THEN
-                                                          ROUND((COUNT(sa.id)
-                                                                 FILTER (WHERE sa.attendance_status = 'present')::numeric /
-                                                                 COUNT(sa.id)) * 100, 2)
-                                                      ELSE 0
-                                   END
-                       )
-                       ORDER BY
-                           CASE
-                               WHEN COUNT(sa.id) > 0 THEN
-                                   (COUNT(sa.id)
-                                    FILTER (WHERE sa.attendance_status = 'present')::numeric /
-                                    COUNT(sa.id))
-                               ELSE 0 END DESC
-               )
-        INTO workshop_attendance
-        FROM public.scheduled_workshops sw
-                 JOIN public.headquarters h ON sw.headquarter_id = h.id
-                 LEFT JOIN public.student_attendance sa ON sw.id = sa.scheduled_workshop_id
-        WHERE sw.season_id = season_id
-        GROUP BY h.id, h.name;
-
-        -- Build result
-        result_data := jsonb_build_object(
-                'season_id', season_id,
-                'by_workshop_type', COALESCE(workshop_types, '[]'::jsonb),
-                'by_headquarter', COALESCE(workshop_attendance, '[]'::jsonb)
-                       );
-    ELSE
-        -- HQ-specific stats
-
-        -- By workshop type for specific HQ
-        SELECT jsonb_agg(
-                       jsonb_build_object(
-                               'workshop_type', mwt.name,
-                               'total_workshops', COUNT(DISTINCT sw.id),
-                               'total_attendances', COUNT(sa.id),
-                               'present_count',
-                               COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'present'),
-                               'absent_count',
-                               COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'absent'),
-                               'attendance_rate', CASE
-                                                      WHEN COUNT(sa.id) > 0 THEN
-                                                          ROUND((COUNT(sa.id)
-                                                                 FILTER (WHERE sa.attendance_status = 'present')::numeric /
-                                                                 COUNT(sa.id)) * 100, 2)
-                                                      ELSE 0
-                                   END
-                       )
-                       ORDER BY COUNT(DISTINCT sw.id) DESC
-               )
-        INTO workshop_types
-        FROM public.scheduled_workshops sw
-                 JOIN public.master_workshop_types mwt ON sw.master_workshop_type_id = mwt.id
-                 LEFT JOIN public.student_attendance sa ON sw.id = sa.scheduled_workshop_id
-        WHERE sw.season_id = season_id
-          AND sw.headquarter_id = target_hq_id
-        GROUP BY mwt.name;
-
-        -- Get headquarter name
-        SELECT jsonb_build_object(
-                       'headquarter_id', h.id,
-                       'headquarter_name', h.name,
-                       'season_id', season_id,
-                       'total_workshops', COUNT(DISTINCT sw.id),
-                       'total_attendances', COUNT(sa.id),
-                       'present_count',
-                       COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'present'),
-                       'absent_count', COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'absent'),
-                       'attendance_rate', CASE
-                                              WHEN COUNT(sa.id) > 0 THEN
-                                                  ROUND((COUNT(sa.id)
-                                                         FILTER (WHERE sa.attendance_status = 'present')::numeric /
-                                                         COUNT(sa.id)) * 100, 2)
-                                              ELSE 0
-                           END,
-                       'by_workshop_type', COALESCE(workshop_types, '[]'::jsonb)
-               )
-        INTO result_data
-        FROM public.headquarters h
-                 LEFT JOIN public.scheduled_workshops sw
-                           ON h.id = sw.headquarter_id AND sw.season_id = season_id
-                 LEFT JOIN public.student_attendance sa ON sw.id = sa.scheduled_workshop_id
-        WHERE h.id = target_hq_id
-        GROUP BY h.id, h.name;
-    END IF;
-
-    RETURN result_data;
-END;
-$$;
-
--- Grant execute permission
-GRANT EXECUTE ON FUNCTION get_workshop_attendance_stats(uuid, uuid) TO authenticated;
+-- -- NEW FUNCTION: Get workshop attendance statistics by headquarter
+-- CREATE OR REPLACE FUNCTION get_workshop_attendance_stats(target_hq_id uuid DEFAULT NULL, season_id uuid DEFAULT NULL)
+--     RETURNS jsonb
+--     LANGUAGE plpgsql
+--     SECURITY DEFINER
+--     SET SEARCH_PATH = ''
+-- AS
+-- $$
+-- DECLARE
+--     current_role_level  integer;
+--     current_user_hq_id  uuid;
+--     is_authorized       boolean := false;
+--     result_data         jsonb;
+--     workshop_attendance jsonb;
+--     workshop_types      jsonb;
+-- BEGIN
+--     -- Get current user's role level and HQ ID
+--     current_role_level := public.fn_get_current_role_level();
+--     current_user_hq_id := public.fn_get_current_hq_id();
+--
+--     -- Permission Check
+--     IF target_hq_id IS NULL THEN
+--         -- Global stats require level 80+
+--         IF current_role_level >= 80 THEN
+--             is_authorized := true;
+--         END IF;
+--     ELSE
+--         -- HQ-specific stats require level 80+ OR level 50+ and in the same HQ
+--         IF current_role_level >= 80 OR
+--            (current_role_level >= 50 AND target_hq_id = current_user_hq_id) THEN
+--             is_authorized := true;
+--         END IF;
+--     END IF;
+--
+--     IF NOT is_authorized THEN
+--         RAISE EXCEPTION 'Insufficient privileges to access workshop attendance statistics.';
+--     END IF;
+--
+--     -- Default to current active season if none specified
+--     IF season_id IS NULL THEN
+--         SELECT id
+--         INTO season_id
+--         FROM public.seasons
+--         WHERE status = 'active'
+--         ORDER BY start_date DESC
+--         LIMIT 1;
+--     END IF;
+--
+--     -- Calculate workshop attendance statistics
+--     IF target_hq_id IS NULL THEN
+--         -- Global stats across all headquarters
+--
+--         -- By workshop type
+--         SELECT jsonb_agg(
+--                        jsonb_build_object(
+--                                'workshop_type', mwt.name,
+--                                'total_workshops', COUNT(DISTINCT sw.id),
+--                                'total_attendances', COUNT(sa.id),
+--                                'present_count',
+--                                COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'present'),
+--                                'absent_count',
+--                                COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'absent'),
+--                                'attendance_rate', CASE
+--                                                       WHEN COUNT(sa.id) > 0 THEN
+--                                                           ROUND((COUNT(sa.id)
+--                                                                  FILTER (WHERE sa.attendance_status = 'present')::numeric /
+--                                                                  COUNT(sa.id)) * 100, 2)
+--                                                       ELSE 0
+--                                    END
+--                        )
+--                        ORDER BY COUNT(DISTINCT sw.id) DESC
+--                )
+--         INTO workshop_types
+--         FROM public.scheduled_workshops sw
+--                  JOIN public.master_workshop_types mwt ON sw.master_workshop_type_id = mwt.id
+--                  LEFT JOIN public.student_attendance sa ON sw.id = sa.scheduled_workshop_id
+--         WHERE sw.season_id = season_id
+--         GROUP BY mwt.name;
+--
+--         -- By headquarter
+--         SELECT jsonb_agg(
+--                        jsonb_build_object(
+--                                'headquarter_id', h.id,
+--                                'headquarter_name', h.name,
+--                                'total_workshops', COUNT(DISTINCT sw.id),
+--                                'total_attendances', COUNT(sa.id),
+--                                'present_count',
+--                                COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'present'),
+--                                'absent_count',
+--                                COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'absent'),
+--                                'attendance_rate', CASE
+--                                                       WHEN COUNT(sa.id) > 0 THEN
+--                                                           ROUND((COUNT(sa.id)
+--                                                                  FILTER (WHERE sa.attendance_status = 'present')::numeric /
+--                                                                  COUNT(sa.id)) * 100, 2)
+--                                                       ELSE 0
+--                                    END
+--                        )
+--                        ORDER BY
+--                            CASE
+--                                WHEN COUNT(sa.id) > 0 THEN
+--                                    (COUNT(sa.id)
+--                                     FILTER (WHERE sa.attendance_status = 'present')::numeric /
+--                                     COUNT(sa.id))
+--                                ELSE 0 END DESC
+--                )
+--         INTO workshop_attendance
+--         FROM public.scheduled_workshops sw
+--                  JOIN public.headquarters h ON sw.headquarter_id = h.id
+--                  LEFT JOIN public.student_attendance sa ON sw.id = sa.scheduled_workshop_id
+--         WHERE sw.season_id = season_id
+--         GROUP BY h.id, h.name;
+--
+--         -- Build result
+--         result_data := jsonb_build_object(
+--                 'season_id', season_id,
+--                 'by_workshop_type', COALESCE(workshop_types, '[]'::jsonb),
+--                 'by_headquarter', COALESCE(workshop_attendance, '[]'::jsonb)
+--                        );
+--     ELSE
+--         -- HQ-specific stats
+--
+--         -- By workshop type for specific HQ
+--         SELECT jsonb_agg(
+--                        jsonb_build_object(
+--                                'workshop_type', mwt.name,
+--                                'total_workshops', COUNT(DISTINCT sw.id),
+--                                'total_attendances', COUNT(sa.id),
+--                                'present_count',
+--                                COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'present'),
+--                                'absent_count',
+--                                COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'absent'),
+--                                'attendance_rate', CASE
+--                                                       WHEN COUNT(sa.id) > 0 THEN
+--                                                           ROUND((COUNT(sa.id)
+--                                                                  FILTER (WHERE sa.attendance_status = 'present')::numeric /
+--                                                                  COUNT(sa.id)) * 100, 2)
+--                                                       ELSE 0
+--                                    END
+--                        )
+--                        ORDER BY COUNT(DISTINCT sw.id) DESC
+--                )
+--         INTO workshop_types
+--         FROM public.scheduled_workshops sw
+--                  JOIN public.master_workshop_types mwt ON sw.master_workshop_type_id = mwt.id
+--                  LEFT JOIN public.student_attendance sa ON sw.id = sa.scheduled_workshop_id
+--         WHERE sw.season_id = season_id
+--           AND sw.headquarter_id = target_hq_id
+--         GROUP BY mwt.name;
+--
+--         -- Get headquarter name
+--         SELECT jsonb_build_object(
+--                        'headquarter_id', h.id,
+--                        'headquarter_name', h.name,
+--                        'season_id', season_id,
+--                        'total_workshops', COUNT(DISTINCT sw.id),
+--                        'total_attendances', COUNT(sa.id),
+--                        'present_count',
+--                        COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'present'),
+--                        'absent_count', COUNT(sa.id) FILTER (WHERE sa.attendance_status = 'absent'),
+--                        'attendance_rate', CASE
+--                                               WHEN COUNT(sa.id) > 0 THEN
+--                                                   ROUND((COUNT(sa.id)
+--                                                          FILTER (WHERE sa.attendance_status = 'present')::numeric /
+--                                                          COUNT(sa.id)) * 100, 2)
+--                                               ELSE 0
+--                            END,
+--                        'by_workshop_type', COALESCE(workshop_types, '[]'::jsonb)
+--                )
+--         INTO result_data
+--         FROM public.headquarters h
+--                  LEFT JOIN public.scheduled_workshops sw
+--                            ON h.id = sw.headquarter_id AND sw.season_id = season_id
+--                  LEFT JOIN public.student_attendance sa ON sw.id = sa.scheduled_workshop_id
+--         WHERE h.id = target_hq_id
+--         GROUP BY h.id, h.name;
+--     END IF;
+--
+--     RETURN result_data;
+-- END;
+-- $$;
+--
+-- -- Grant execute permission
+-- GRANT EXECUTE ON FUNCTION get_workshop_attendance_stats(uuid, uuid) TO authenticated;
 
 -- NEW FUNCTION: Get student progress statistics
 CREATE OR REPLACE FUNCTION get_student_progress_stats(target_hq_id uuid DEFAULT NULL)

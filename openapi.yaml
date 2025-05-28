@@ -1,0 +1,525 @@
+openapi: 3.0.3
+info:
+  title: Akademy API
+  description: Educational platform API for user management and data migration from Strapi CMS
+  version: 1.0.0
+  contact:
+    name: Akademy Development Team
+    url: https://github.com/your-org/supabase
+
+servers:
+  - url: https://your-project.supabase.co/functions/v1
+    description: Production server
+  - url: http://localhost:54321/functions/v1
+    description: Local development server
+
+security:
+  - BearerAuth: []
+  - SuperPasswordAuth: []
+
+paths:
+  /akademy:
+    get:
+      summary: Get API status and available endpoints
+      description: Returns the status of the Akademy API and lists available endpoints
+      tags:
+        - Health
+      responses:
+        '200':
+          description: API status information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  message:
+                    type: string
+                    example: "Akademy API is running"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  endpoints:
+                    type: array
+                    items:
+                      type: string
+                    example: ["/health", "/migrate", "/create-user", "/reset-password", "/deactivate-user"]
+
+  /akademy/health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API and its services
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Health check successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  services:
+                    type: array
+                    items:
+                      type: string
+                    example: ["migration", "user-management"]
+
+  /akademy/migrate:
+    post:
+      summary: Migrate data from Strapi CMS
+      description: |
+        Performs incremental data migration from external Strapi CMS to Supabase.
+        Requires dual authentication: JWT token and super password header.
+        Uses timestamp-based tracking for incremental updates.
+      tags:
+        - Migration
+      security:
+        - BearerAuth: []
+          SuperPasswordAuth: []
+      parameters:
+        - name: x-super-password
+          in: header
+          required: true
+          description: Super password for migration authorization
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Migration completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  statistics:
+                    type: object
+                    properties:
+                      strapiTotal:
+                        type: integer
+                        description: Total records fetched from Strapi
+                        example: 150
+                      supabaseInserted:
+                        type: integer
+                        description: New records inserted into Supabase
+                        example: 45
+                      supabaseUpdated:
+                        type: integer
+                        description: Existing records updated in Supabase
+                        example: 12
+                      duplicatesSkipped:
+                        type: integer
+                        description: Duplicate records skipped
+                        example: 93
+                  processedData:
+                    type: array
+                    description: Summary of processed agreements
+                    items:
+                      $ref: '#/components/schemas/ProcessedAgreement'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          description: Migration failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Database connection failed"
+                  statistics:
+                    type: object
+                    nullable: true
+
+  /akademy/create-user:
+    post:
+      summary: Create user from prospect agreement
+      description: |
+        Creates a new user account from an existing prospect agreement.
+        Requires minimum role level 30. Auto-generates password and activates agreement.
+        Enforces role hierarchy - users cannot create accounts with higher role levels than their own.
+      tags:
+        - User Management
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserCreationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Insufficient role level
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Cannot create user with role level 40. Your level: 30"
+                status: 403
+        '404':
+          description: Agreement not found or already activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Agreement not found or already activated"
+                status: 404
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /akademy/reset-password:
+    post:
+      summary: Reset user password
+      description: |
+        Resets password for an existing user account using identity verification.
+        Requires minimum role level 30. Validates user identity using multiple data points
+        (email, document number, phone, first name, last name) before allowing password reset.
+      tags:
+        - User Management
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PasswordResetResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: User not found or data mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "User not found or data mismatch"
+                status: 404
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /akademy/deactivate-user:
+    post:
+      summary: Deactivate user account
+      description: |
+        Permanently deactivates a user account by setting a 100-year ban.
+        Requires minimum role level 50. Also updates associated agreement status to inactive.
+        This action is irreversible through the API.
+      tags:
+        - User Management
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeactivateUserRequest'
+      responses:
+        '200':
+          description: User deactivated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DeactivateUserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Insufficient role level (requires level 50+)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "User not found"
+                status: 404
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for user authentication
+    SuperPasswordAuth:
+      type: apiKey
+      in: header
+      name: x-super-password
+      description: Super password required for migration endpoints
+
+  schemas:
+    CreateUserRequest:
+      type: object
+      required:
+        - agreement_id
+      properties:
+        agreement_id:
+          type: string
+          format: uuid
+          description: UUID of the prospect agreement to create user from
+          example: "123e4567-e89b-12d3-a456-426614174000"
+
+    UserCreationResponse:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: Generated UUID for the new user
+          example: "987fcdeb-51a2-43d1-9c67-123456789abc"
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        password:
+          type: string
+          description: Auto-generated password for the user
+          example: "TempPass123!"
+        headquarter_name:
+          type: string
+          description: Name of the user's headquarters
+          example: "Madrid Campus"
+        country_name:
+          type: string
+          description: Country name where headquarters is located
+          example: "Spain"
+        season_name:
+          type: string
+          description: Academic season name
+          example: "2024-2025"
+        role_name:
+          type: string
+          description: User's role name
+          example: "Student"
+        phone:
+          type: string
+          nullable: true
+          description: User's phone number (optional)
+          example: "+34123456789"
+
+    ResetPasswordRequest:
+      type: object
+      required:
+        - email
+        - document_number
+        - new_password
+        - phone
+        - first_name
+        - last_name
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: "user@example.com"
+        document_number:
+          type: string
+          minLength: 1
+          description: User's document/ID number
+          example: "12345678A"
+        new_password:
+          type: string
+          minLength: 8
+          description: New password (minimum 8 characters)
+          example: "NewSecurePass123!"
+        phone:
+          type: string
+          minLength: 1
+          description: User's phone number for identity verification
+          example: "+34123456789"
+        first_name:
+          type: string
+          minLength: 1
+          description: User's first name for identity verification
+          example: "John"
+        last_name:
+          type: string
+          minLength: 1
+          description: User's last name for identity verification
+          example: "Doe"
+
+    PasswordResetResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Success message
+          example: "Password successfully updated for user user@example.com"
+        new_password:
+          type: string
+          description: The new password that was set
+          example: "NewSecurePass123!"
+        user_email:
+          type: string
+          format: email
+          description: Email of the user whose password was reset
+          example: "user@example.com"
+
+    DeactivateUserRequest:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: UUID of the user to deactivate
+          example: "123e4567-e89b-12d3-a456-426614174000"
+
+    DeactivateUserResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Confirmation message
+          example: "User user@example.com has been deactivated"
+        user_id:
+          type: string
+          format: uuid
+          description: UUID of the deactivated user
+          example: "123e4567-e89b-12d3-a456-426614174000"
+
+    ProcessedAgreement:
+      type: object
+      description: Summary of a processed agreement during migration
+      properties:
+        id:
+          type: integer
+          description: Strapi agreement ID
+          example: 123
+        email:
+          type: string
+          format: email
+          example: "student@example.com"
+        name:
+          type: string
+          example: "John Doe"
+        headquarters:
+          type: string
+          example: "Madrid Campus"
+        role:
+          type: string
+          example: "Student"
+        status:
+          type: string
+          enum: [inserted, updated, skipped]
+          description: Processing status
+          example: "inserted"
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        status:
+          type: integer
+          description: HTTP status code
+
+  responses:
+    BadRequest:
+      description: Invalid request data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Invalid request data"
+            status: 400
+
+    Unauthorized:
+      description: Authentication required or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            missing_auth:
+              summary: Missing authentication
+              value:
+                error: "No autorizado"
+                status: 401
+            invalid_credentials:
+              summary: Invalid credentials
+              value:
+                error: "Unauthorized: Invalid or missing credentials"
+                status: 401
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Internal server error"
+            status: 500
+
+tags:
+  - name: Health
+    description: API health and status endpoints
+  - name: Migration
+    description: Data migration from external Strapi CMS
+  - name: User Management
+    description: User account creation, password reset, and deactivation
+
+externalDocs:
+  description: Find more info in the project documentation
+  url: https://docs.supabase.com/guides/functions

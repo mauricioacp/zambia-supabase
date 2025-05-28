@@ -1,11 +1,4 @@
 /*
- * Agreement with Role View and Functions
- * 
- * This schema creates a view that joins agreements with their associated role,
- * and provides several functions to query this view efficiently.
- * 
- * The view:
- * - agreement_with_role: Joins agreements with their role as a JSONB object
  * 
  * Functions:
  * - get_agreements_with_role(): Returns all agreements with their role
@@ -24,43 +17,31 @@
  * - SELECT get_agreement_with_role_by_id('123e4567-e89b-12d3-a456-426614174000');
  */
 
--- Create view that joins agreements with their single role
-CREATE OR REPLACE VIEW agreement_with_role AS
-SELECT
-    a.id,
-    a.user_id,
-    a.headquarter_id,
-    a.season_id,
-    a.status,
-    a.email,
-    a.document_number,
-    a.phone,
-    a.name,
-    a.last_name,
-    a.fts_name_lastname,
-    a.address,
-    a.signature_data,
-    a.volunteering_agreement,
-    a.ethical_document_agreement,
-    a.mailing_agreement,
-    a.age_verification,
-    a.created_at,
-    a.updated_at,
-    COALESCE(jsonb_build_object(
-        'role_id', r.id,
-        'role_name', r.name,
-        'role_description', r.description,
-        'role_code', r.code,
-        'role_level', r.level
-    ), '{}'::jsonb) AS role
-FROM
-    agreements a
-LEFT JOIN
-    roles r ON a.role_id = r.id;
+create view public.agreement_with_role as
+SELECT a.id,
+       a.user_id,
+       a.headquarter_id,
+       a.season_id,
+       a.status,
+       a.email,
+       a.document_number,
+       a.phone,
+       a.name,
+       a.last_name,
+       a.fts_name_lastname,
+       a.address,
+       a.signature_data,
+       a.volunteering_agreement,
+       a.ethical_document_agreement,
+       a.mailing_agreement,
+       a.age_verification,
+       a.created_at,
+       a.updated_at,
+       COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb) AS role
+FROM agreements a
+         LEFT JOIN roles r ON a.role_id = r.id;
 
--- Set security for the view to be the same as the invoker
--- This ensures the view respects the RLS policies of the underlying tables
-ALTER VIEW agreement_with_role SET (security_invoker = true);
+ALTER VIEW agreement_with_role SET (security_invoker = on);
 
 CREATE OR REPLACE FUNCTION get_agreements_with_role()
 RETURNS SETOF agreement_with_role

@@ -16,8 +16,7 @@ This repository contains the backend for the Akademia project, powered by Supaba
 - [Database Schema & Migrations](#database-schema--migrations)
 - [Seed Data](#seed-data)
 - [Edge Functions](#edge-functions)
-  - [Strapi Migration Function](#strapi-migration-function)
-  - [Akademy Admin Function](#akademy-admin-function)
+  - [Akademy Function](#akademy-function)
 - [Developer Scripts](#developer-scripts)
 - [Development Workflow](#development-workflow)
 - [Deployment](#deployment)
@@ -53,12 +52,11 @@ This repository contains the backend for the Akademia project, powered by Supaba
    ```
 5. Serve Edge Functions:
    ```bash
-   supabase functions serve --env-file ./functions/strapi-migration/.env
-   supabase functions serve --env-file ./functions/akademy-app/.env
+   supabase functions serve --env-file ./functions/.env
    ```
 6. (Optional) Full dev environment reset & start:
-   ```powershell
-   .\scripts\regenerate-dev.ps1 -Verbose
+   ```bash
+   deno task generate:dev:environment
    ```
 
 ## Project Structure
@@ -70,17 +68,30 @@ This repository contains the backend for the Akademia project, powered by Supaba
 ├─ migrations/           # Auto-generated migration files
 ├─ seed.sql              # Initial seed data
 ├─ functions/            # Supabase Edge Functions
-│  ├─ strapi-migration/  # Migrate data from Strapi CMS
-│  └─ akademy-app/       # Admin API for agreements, roles, etc.
+│  ├─ akademy/           # Unified API: migration + user management
+│  ├─ user-management/   # Legacy user management (compatibility)
+│  └─ .env               # Centralized environment configuration
 ├─ scripts/              # Developer helper scripts
-│  └─ regenerate-dev.ps1  # Reset & start local environment
+│  └─ regenerate-dev.ts  # Reset & start local environment
 └─ README.md             # Project overview (this file)
 ```
 
 ## Configuration
 
 - **config.toml**: Defines project ID, ports, enabled services, and schema/seed paths.
-- **.env** files (in `functions/*` and `scripts/`): Store API URLs, tokens, and Supabase keys.
+- **functions/.env**: Centralized environment configuration for all functions.
+
+## Edge Functions
+
+### Akademy Function
+
+The primary function combining data migration and user management capabilities:
+
+- **Migration**: `POST /migrate` - Migrates data from Strapi CMS with dual authentication
+- **User Management**: Create, reset password, and deactivate users with role-based access
+- **Health Check**: `GET /health` - Function status and service listing
+
+Access at: `http://localhost:54321/functions/v1/akademy`
 
 To get local schema types:
 
@@ -113,14 +124,23 @@ To update the schema:
 
 ## Developer Scripts
 
-- **regenerate-dev.ps1**: Automates environment reset, local Supabase, functions, Node app, ngrok, and initial migration/seed.
+- **regenerate-dev.ts**: Automates complete environment reset including:
+  - Cleanup of old migrations
+  - Supabase stack restart with fresh database  
+  - Edge function serving
+  - Strapi data migration via `/akademy/migrate` endpoint
+  - Generation of new migration file with migrated data
+  - Test user creation and type generation
 
 ## Development Workflow
 
-1. Start Supabase and functions locally
+1. Start Supabase and functions locally: `deno task generate:dev:environment`
 2. Modify schemas or function code
-3. Test endpoints (e.g., `http://localhost:54321/functions/v1/...`)
-4. Commit changes and migrations
+3. Test endpoints:
+   - Akademy function: `http://localhost:54321/functions/v1/akademy`
+   - User management: `http://localhost:54321/functions/v1/user-management`
+4. Run tests: `deno task test:akademy` or `deno task test:user-management`
+5. Commit changes and migrations
 
 ## Deployment
 
