@@ -10,7 +10,7 @@ import { createUserFromAgreement } from './routes/create-user.ts';
 import { resetUserPassword } from './routes/reset-password.ts';
 import { deactivateUser } from './routes/deactivate-user.ts';
 
-const app = new Hono();
+export const app = new Hono();
 
 app.use('*', cors({
 	origin: ['http://localhost:3000', 'https://*.supabase.co'],

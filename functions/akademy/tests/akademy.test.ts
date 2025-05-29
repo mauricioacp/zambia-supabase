@@ -1,5 +1,5 @@
 import { assertEquals, assertExists } from "@std/assert";
-import app from "../main.ts";
+import {app} from "../main.ts";
 
 // Mock JWT tokens for different role levels
 const LEVEL_30_TOKEN = "Bearer mock-level-30-token";
@@ -9,7 +9,7 @@ const INVALID_TOKEN = "Bearer invalid-token";
 
 // Test helper to make requests
 async function makeRequest(path: string, options: RequestInit = {}) {
-  const req = new Request(`http://localhost:8000${path}`, {
+  const req = new Request(`http://localhost:8000/akademy${path}`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",

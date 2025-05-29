@@ -62,5 +62,10 @@ export function createAdminSupabaseClient(): SupabaseClient {
 		throw new Error('Missing Supabase environment variables for admin client');
 	}
 
-	return createClient(supabaseUrl, supabaseServiceRoleKey);
+	return createClient(supabaseUrl, supabaseServiceRoleKey, {
+		auth: {
+			autoRefreshToken: false,
+			persistSession: false
+		}
+	});
 }
