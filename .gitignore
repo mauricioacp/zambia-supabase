@@ -9,3 +9,6 @@
 .windsurfrules
 /credentials.json
 
+# Database backups
+/backups/
+
