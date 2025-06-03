@@ -13,7 +13,7 @@
  * Usage: deno task generate:dev:environment
  */
 
-import {EXTERNAL_KEY, SUPER_PASSWORD} from "../_environment.ts";
+import {SUPABASE_ANON_KEY, SUPER_PASSWORD} from "../_environment.ts";
 
 // Clean up old migrations first
 console.log("\n🧹 Cleaning up old migrations...");
@@ -106,7 +106,7 @@ if (!SUPER_PASSWORD) {
         method: "POST",
         headers: {
             Accept: "application/json",
-            Authorization: `Bearer ${EXTERNAL_KEY}`,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
             "x-super-password": SUPER_PASSWORD,
             "Content-Type": "application/json",
         },

@@ -346,68 +346,53 @@ npx supabase functions serve --debug
 
 ## Production Deployment
 
-### Deployment Commands
+Use direct Supabase CLI commands for production operations. See `docs/production-cli-commands.md` for complete reference.
+
+### Essential Commands
 ```bash
-# Full production deployment
-deno task deploy:production --project-ref PROJECT_ID
+# Deploy database migrations
+npx supabase db push --include-seed
 
-# Preview deployment (dry run)
-deno task deploy:dry-run --project-ref PROJECT_ID
+# Deploy Edge Functions
+npx supabase functions deploy --no-verify-jwt
 
-# Deploy only Edge Functions
-deno task deploy:functions --project-ref PROJECT_ID
+# Create database backup
+npx supabase db dump -f backup-$(date +%Y%m%d-%H%M%S).sql
 
-# Deploy only database migrations
-deno task deploy:database --project-ref PROJECT_ID
+# Reset production database (DANGEROUS!)
+npx supabase db reset --linked
 
-# Force deployment without prompts (CI/CD)
-deno task deploy:production --force --project-ref PROJECT_ID
+# Compare local vs remote schemas
+npx supabase db diff --linked --use-migra
 ```
 
-### Prerequisites for Deployment
+### Prerequisites
 1. **Environment Variables Required**:
    ```bash
-   export SUPABASE_ACCESS_TOKEN="your_access_token"
    export SUPABASE_DB_PASSWORD="your_db_password"
-   export SUPABASE_PROJECT_ID="your_project_ref"
+   export SUPABASE_PROJECT_ID="your_project_ref"  # Optional
    ```
 
-2. **Required Software**:
-   - Supabase CLI (`npm install -g supabase`)
-   - Docker Desktop (for Edge Functions)
-   - Git (for version control verification)
-
-3. **Project Setup**:
+2. **Project Setup**:
    ```bash
-   supabase login
-   supabase link --project-ref your_project_id
+   npx supabase link --project-ref your_project_id
+   npx supabase status  # Verify connection
    ```
 
-### Deployment Process
-The deployment script performs:
-1. **Preflight checks**: CLI tools, Docker, project linking, environment variables
-2. **Pre-deployment tests**: Unit tests and validation
-3. **Database deployment**: Migrations with `supabase db push`
-4. **Functions deployment**: Edge Functions with `supabase functions deploy --no-verify-jwt`
-5. **Post-deployment validation**: Health checks and verification
-
-### Security Configuration
-- **Functions deployed with `--no-verify-jwt`**: akademy function handles its own authentication
-- **Secrets management**: Environment variables deployed via `supabase secrets set --env-file .env`
-- **Never commit `.env` files**: Keep secrets in environment variables only
-- **⚠️ CRITICAL**: Never hardcode JWT tokens, service keys, or API keys in code or configuration files
-- **Use `.env.example`**: Provide template files without actual secrets
-
-### Rollback Procedures
+### Complete Deployment Workflow
 ```bash
-# Database rollback (create reverse migration)
-supabase migration new rollback_changes
-supabase db push
+# 1. Deploy database changes
+npx supabase db push --include-seed
 
-# Function rollback (deploy previous version)
-git checkout previous_commit_hash
-supabase functions deploy akademy
-git checkout main
+# 2. Deploy secrets (if any)
+npx supabase secrets set --env-file .env
+
+# 3. Deploy functions
+npx supabase functions deploy --no-verify-jwt
+
+# 4. Verify deployment
+npx supabase migration list --remote
+curl https://your-project.supabase.co/functions/v1/akademy/health
 ```
 
 ### Monitoring and Validation
@@ -416,10 +401,10 @@ git checkout main
 curl https://your-project.supabase.co/functions/v1/akademy/health
 
 # View function logs
-supabase functions logs akademy
+npx supabase functions logs akademy
 
 # Check migration status
-supabase migration list --remote
+npx supabase migration list --remote
 ```
 
-See `docs/deployment-guide.md` for comprehensive deployment documentation.
+See `docs/production-cli-commands.md` for comprehensive CLI command reference.

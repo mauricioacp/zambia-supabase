@@ -20,7 +20,10 @@
       "Bash(git commit:*)",
       "Bash(sed:*)",
       "Bash(ls:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(find:*)",
+      "Bash(./test-migration-auth.ts)"
     ],
     "deny": []
   },

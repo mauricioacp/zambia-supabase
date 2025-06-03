@@ -12,3 +12,5 @@
 # Database backups
 /backups/
 
+/functions/akademy/deno.lock
+/deno.lock

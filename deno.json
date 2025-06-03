@@ -21,10 +21,11 @@
     "test:user-management": "cd functions/user-management && deno task test",
     "branch:feature": "deno run --allow-run scripts/create-feature-branch.ts",
     "branch:hotfix": "deno run --allow-run scripts/create-feature-branch.ts --type=hotfix",
-    "deploy:production": "deno run --allow-all scripts/deploy-production.ts",
-    "deploy:dry-run": "deno run --allow-all scripts/deploy-production.ts --dry-run",
-    "deploy:functions": "deno run --allow-all scripts/deploy-production.ts --functions-only",
-    "deploy:database": "deno run --allow-all scripts/deploy-production.ts --db-only"
+    "deploy:db": "npx supabase db push --include-seed",
+    "deploy:functions": "npx supabase functions deploy --no-verify-jwt",
+    "backup:db": "npx supabase db dump -f backup-$(date +%Y%m%d-%H%M%S).sql",
+    "reset:db": "npx supabase db reset --linked",
+    "diff:schema": "npx supabase db diff --linked --use-migra"
   },
   "fmt": {
     "useTabs": true,
