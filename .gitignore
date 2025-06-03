@@ -14,3 +14,5 @@
 
 /functions/akademy/deno.lock
 /deno.lock
+
+node_modules
