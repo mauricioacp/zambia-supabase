@@ -16,3 +16,5 @@
 /deno.lock
 
 node_modules
+
+.env.local

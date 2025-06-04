@@ -107,15 +107,6 @@ npx supabase status
 npx supabase projects list
 ```
 
-### Function Management
-```bash
-# View function logs
-npx supabase functions logs akademy
-
-# Test function health
-curl https://your-project.supabase.co/functions/v1/akademy/health
-```
-
 ### Migration Management
 ```bash
 # List local migrations

@@ -19,13 +19,12 @@
     "test": "deno test --allow-net --allow-env --allow-read --env=.env tests/*.ts",
     "test:akademy": "cd functions/akademy && deno task test",
     "test:user-management": "cd functions/user-management && deno task test",
-    "branch:feature": "deno run --allow-run scripts/create-feature-branch.ts",
-    "branch:hotfix": "deno run --allow-run scripts/create-feature-branch.ts --type=hotfix",
-    "deploy:db": "npx supabase db push --include-seed",
-    "deploy:functions": "npx supabase functions deploy --no-verify-jwt",
+    "deploy:db:seed": "npx supabase db push --include-seed",
+    "deploy:functions": "npx supabase functions deploy",
     "backup:db": "npx supabase db dump -f backup-$(date +%Y%m%d-%H%M%S).sql",
     "reset:db": "npx supabase db reset --linked",
-    "diff:schema": "npx supabase db diff --linked --use-migra"
+    "diff:schema": "npx supabase db diff --linked --use-migra",
+    "serve:local": "npx supabase functions serve --env-file .env.local"
   },
   "fmt": {
     "useTabs": true,
