@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { strapiMigrationRoute } from "./routes/migration.ts";
@@ -7,16 +8,17 @@ import { resetUserPassword } from "./routes/reset-password.ts";
 import { deactivateUser } from "./routes/deactivate-user.ts";
 import { requireMinRoleLevel } from "./middleware/auth.ts";
 
-
-// Only if you need to call from another production endpoint
-/*
-app.use('*', cors({
-    origin: 'https://anotherdomain.com',
-    credentials: true,
-}));
-*/
-
 export const app = new Hono();
+
+// Enable CORS for all origins in development
+app.use('*', cors({
+    origin: '*',
+    allowHeaders: ['Content-Type', 'Authorization', 'x-client-info', 'apikey', 'X-Requested-With'],
+    allowMethods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
+    credentials: true,
+    exposeHeaders: ['Content-Length', 'X-JSON'],
+    maxAge: 86400,
+}));
 
 app.get('/akademy-app/health', (c) => {
     return c.json({
@@ -24,10 +26,6 @@ app.get('/akademy-app/health', (c) => {
         timestamp: new Date().toISOString(),
         services: ['migration', 'user-management']
     });
-});
-
-app.options('*', (_c) => {
-    return new Response('', { status: 204 });
 });
 
 app.onError((err, c) => {
