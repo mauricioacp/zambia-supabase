@@ -19,19 +19,15 @@ interface AppConfig {
 
 
 const setupConfiguration = (authHeader: string): AppConfig => {
-	const supabaseUrl = Deno.env.get('SUPABASE_URL');
-	const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+	const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+	const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+
 	const strapiApiUrl = Deno.env.get('STRAPI_API_URL');
 	const strapiToken = Deno.env.get('STRAPI_API_TOKEN');
 
-	if (!supabaseUrl || !supabaseAnonKey) {
-		throw new Error(
-			'Supabase URL or Service Anon Key environment variable is missing.',
-		);
-	}
 	if (!strapiApiUrl || !strapiToken) {
 		throw new Error(
-			'Strapi API URL or Token environment variable is missing.',
+			'Strapi API URL or Token environment variable is missing. These must be set via supabase secrets.',
 		);
 	}
 

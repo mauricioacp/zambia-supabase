@@ -56,7 +56,7 @@ export async function createUserFromAgreement(c: Context): Promise<Response> {
 					hq_id: agreement.headquarter_id,
 					season_id: agreement.season_id,
 					agreement_id: agreement.id,
-					name: agreement.name,
+					first_name: agreement.name,
 					last_name: agreement.last_name,
 					phone: agreement.phone,
 				},

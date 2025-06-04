@@ -2,13 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function getUserRoleLevel(token: string): Promise<number | null> {
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('Missing Supabase environment variables');
-      return null;
-    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
     // Create a client with the user's token
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {

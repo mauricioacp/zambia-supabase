@@ -80,30 +80,54 @@ async function testRouteAccess(route: string, requiredLevel: number) {
         continue;
       }
 
+      let body = {};
+      if (route.includes('/create-user')) {
+        body = { agreement_id: '00000000-0000-0000-0000-000000000000' };
+      } else if (route.includes('/reset-password')) {
+        body = {
+          email: 'test@example.com',
+          document_number: '12345678',
+          new_password: 'NewPassword123!',
+          phone: '+1234567890',
+          first_name: 'Test',
+          last_name: 'User'
+        };
+      } else if (route.includes('/deactivate-user')) {
+        body = { user_id: '00000000-0000-0000-0000-000000000000' };
+      }
+
       const response = await fetch(`http://127.0.0.1:54321/functions/v1${route}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.session.access_token}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
-        }
+        },
+        body: JSON.stringify(body)
       });
 
       const shouldHaveAccess = level >= requiredLevel;
-      const hasAccess = response.status === 200;
+
+      const hasAccess = response.status === 200 || 
+        (shouldHaveAccess && route !== '/akademy-app/migrate' && (response.status === 400 || response.status === 404));
+      const accessDenied = response.status === 401 || response.status === 403;
+
+      const success = shouldHaveAccess ? !accessDenied : accessDenied;
 
       results.push({
         role: user.role,
         level,
         status: response.status,
-        success: hasAccess === shouldHaveAccess,
-        message: hasAccess ? 'Access granted' : `Access denied (${response.status})`
+        success,
+        message: shouldHaveAccess 
+          ? (accessDenied ? `Access denied (${response.status})` : `Access granted (${response.status})`)
+          : (accessDenied ? `Correctly denied (${response.status})` : `Unexpected access (${response.status})`)
       });
 
-      if (hasAccess === shouldHaveAccess) {
-        console.log(`  ${green}✓ ${user.role}: ${hasAccess ? 'Access granted' : `Correctly denied (${response.status})`}${reset}`);
+      if (success) {
+        console.log(`  ${green}✓ ${user.role}: ${results[results.length - 1].message}${reset}`);
       } else {
-        console.log(`  ${red}✗ ${user.role}: Expected ${shouldHaveAccess ? 'access' : 'denial'}, got ${response.status}${reset}`);
+        console.log(`  ${red}✗ ${user.role}: ${results[results.length - 1].message}${reset}`);
       }
 
     } catch (error) {
@@ -145,9 +169,9 @@ async function main() {
   console.log(`Run: ${green}npx supabase functions serve akademy-app --env-file .env.local${reset}`);
 
   await testRouteAccess('/akademy-app/migrate', 95);
-
-  // await testRouteAccess('/akademy-app/create-user', 30);
-  // await testRouteAccess('/akademy-app/deactivate-user', 50);
+  await testRouteAccess('/akademy-app/create-user', 30);
+  await testRouteAccess('/akademy-app/reset-password', 1);
+  await testRouteAccess('/akademy-app/deactivate-user', 50);
 
   console.log(`\n${blue}═══════════════════════════════════════════════════${reset}`);
   console.log(`${green}Testing complete!${reset}`);

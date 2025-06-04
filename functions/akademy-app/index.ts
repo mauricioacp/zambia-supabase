@@ -2,7 +2,10 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { strapiMigrationRoute } from "./routes/migration.ts";
-import {requireMinRoleLevel} from "./middleware/auth.ts";
+import { createUserFromAgreement } from "./routes/create-user.ts";
+import { resetUserPassword } from "./routes/reset-password.ts";
+import { deactivateUser } from "./routes/deactivate-user.ts";
+import { requireMinRoleLevel } from "./middleware/auth.ts";
 
 
 // Only if you need to call from another production endpoint
@@ -49,6 +52,10 @@ app.notFound((c) => {
     }, 404);
 });
 
-app.post('/akademy-app/migrate',requireMinRoleLevel(95),  strapiMigrationRoute);
+
+app.post('/akademy-app/migrate', requireMinRoleLevel(95), strapiMigrationRoute);
+app.post('/akademy-app/create-user', requireMinRoleLevel(30), createUserFromAgreement);
+app.post('/akademy-app/reset-password', requireMinRoleLevel(1), resetUserPassword);
+app.post('/akademy-app/deactivate-user', requireMinRoleLevel(50), deactivateUser);
 
 Deno.serve(app.fetch);
