@@ -1,6 +1,6 @@
 {
   "imports": {
-    "@supabase/supabase-js": "jsr:@supabase/supabase-js@2",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.45.0",
     "@std/crypto": "jsr:@std/crypto@1.0.4",
     "@std/crypto/timing-safe-equal": "jsr:@std/crypto@1.0.4/timing-safe-equal",
     "@std/encoding/base64": "jsr:@std/encoding@1/base64",
@@ -9,8 +9,12 @@
     "hono": "jsr:@hono/hono@4",
     "hono/cors": "jsr:@hono/hono@4/cors",
     "hono/http-exception": "jsr:@hono/hono@4/http-exception",
-    "zod": "https://deno.land/x/zod@v3.22.4/mod.ts",
-    "supabase": "jsr:@supabase/supabase-js@2"
+    "zod": "https://deno.land/x/zod@v3.22.4/mod.ts"
   },
-  "lock": false
+  "lock": false,
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.window"],
+    "types": ["@supabase/functions-js/edge-runtime.d.ts"]
+  }
 }

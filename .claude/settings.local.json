@@ -24,7 +24,9 @@
       "WebFetch(domain:github.com)",
       "Bash(find:*)",
       "Bash(./test-migration-auth.ts)",
-      "Bash(docker volume:*)"
+      "Bash(docker volume:*)",
+      "mcp__postgres__query",
+      "mcp__supabase__query"
     ],
     "deny": []
   },

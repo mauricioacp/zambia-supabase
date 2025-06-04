@@ -2,26 +2,31 @@
  * this transformation is added due to bad normalization in a Strapi database.
  */
 export const headquartersNormalization = new Map<string, string>([
-  ["konsejo de dirección", "konsejo akademíko"],
-  ["cdmx", "ciudad de méxico"],
-  ["valencia ruzafa/ribera alta", "valencia nómada upv"],
-  ["valencia", "valencia nómada upv"],
+  ["konsejo de direccion", "konsejo akademiko"],
+  ["consejo de direccion", "konsejo akademiko"],
+  ["cdmx", "ciudad de mexico"],
+  ["valencia ruzafa/ribera alta", "valencia nomada upv"],
+  ["valencia", "valencia nomada upv"],
   ["webinarseptiembre", "webinar septiembre"],
   ["webinar-septiembre", "webinar septiembre"],
   ["webinarfeb", "webinar marzo"],
   ["webinar feb", "webinar marzo"],
   ["webinar febrero", "webinar marzo"],
+  ["webinar-marzo", "webinar marzo"],
 ]);
 
 export const rolesNormalization = new Map<string, string>([
-  ["equipo de comunicación", "director/a de comunicación local"],
-  ["otro", "asistente a la dirección"],
-  ["comunicación", "director/a de comunicación local"],
-  ["equipo comunicación", "director/a de comunicación local"],
+  ["equipo de comunicacion", "director/a de comunicacion local"],
+  ["equipo comunicacion", "director/a de comunicacion local"],
+  ["comunicacion", "director/a de comunicacion local"],
+  ["otro", "asistente a la direccion"],
+  ["konsejo de direccion", "miembro del konsejo de direccion"],
+  ["consejo de direccion", "miembro del konsejo de direccion"],
 ]);
 
 export const normalizeText = (text: string): string => {
-  return text?.trim().toLowerCase() ?? "";
+  return text?.trim().toLowerCase().normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "") ?? "";
 };
 
 export const normalizeHeadquarters = (headquarters: string): string => {

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
-import {strapiMigrationRoute} from "./routes/migration.ts";
+import { strapiMigrationRoute } from "./routes/migration.ts";
 
 
 // Only if you need to call from another production endpoint
@@ -48,6 +48,6 @@ app.notFound((c) => {
     }, 404);
 });
 
-// app.post('/akademy/migrate', strapiMigrationRoute);
+app.post('/akademy-app/migrate', strapiMigrationRoute);
 
 Deno.serve(app.fetch);

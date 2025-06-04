@@ -1,7 +1,6 @@
 import { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { timingSafeEqual } from "@std/crypto/timing-safe-equal";
 
 import { fetchAllStrapiAgreements } from '../services/strapiService.ts';
 import { preloadLookupTable } from '../services/supabaseService.ts';
@@ -18,25 +17,6 @@ interface AppConfig {
 	strapiToken: string;
 }
 
-const verifyPassword = (password: string): boolean => {
-	const superPassword = Deno.env.get('SUPER_PASSWORD');
-
-	if (!superPassword) {
-		console.error('SUPER_PASSWORD environment variable is not set');
-		return false;
-	}
-
-	const providedPasswordBytes = new TextEncoder().encode(password);
-	const storedPasswordBytes = new TextEncoder().encode(superPassword);
-
-	if (providedPasswordBytes.length !== storedPasswordBytes.length) {
-		const dummyBytes = new Uint8Array(providedPasswordBytes.length);
-		timingSafeEqual(providedPasswordBytes, dummyBytes);
-		return false;
-	}
-
-	return timingSafeEqual(providedPasswordBytes, storedPasswordBytes);
-};
 
 const setupConfiguration = (authHeader: string): AppConfig => {
 	const supabaseUrl = Deno.env.get('SUPABASE_URL');

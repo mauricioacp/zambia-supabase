@@ -92,10 +92,13 @@ export async function matchData(
       agreementStatus = "prospect";
     }
 
-    const seasonId = await getSeasonIdByHeadQuarterId(
-      strapiAgreement.headQuarters,
-      supabaseClient,
-    );
+    let seasonId = null;
+    if (strapiAgreement.headQuarters) {
+      seasonId = await getSeasonIdByHeadQuarterId(
+        strapiAgreement.headQuarters,
+        supabaseClient,
+      );
+    }
 
     supabaseAgreements.push({
       address: strapiAgreement.address,

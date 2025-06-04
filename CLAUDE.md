@@ -408,3 +408,13 @@ npx supabase migration list --remote
 ```
 
 See `docs/production-cli-commands.md` for comprehensive CLI command reference.
+
+
+- to serve supabase functions locally: npx supabase functions serve --env-file=<path-to-env-file>
+- to push all secrets from .env file to our remote supabase project (npx):  supabase secrets set --env-file ./supabase/.env
+
+# You can also set secrets individually using:
+supabase secrets set MY_NAME=Chewbacca
+
+- You don't need to re-deploy after setting your secrets.
+- To see all the secrets which you have set remotely, use: supabase secrets list

@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseLookupItem } from '../interfaces.ts';
+import { normalizeText } from '../utils/dataNormalization.ts';
 
 /**
  * @param supabaseClient
@@ -25,7 +26,7 @@ export async function preloadLookupTable(
 	const map = new Map<string, string>();
 	(data as unknown as SupabaseLookupItem[] | null)?.forEach((item) => {
 		if (item.name) {
-			map.set(item.name.trim().toLowerCase(), item.id);
+			map.set(normalizeText(item.name), item.id);
 		} else {
 			console.warn(
 				`Item in ${tableName} table with ID ${item.id} has a null or missing '${nameColumn}'. Skipping.`,
@@ -53,7 +54,6 @@ export async function getSeasonIdByHeadQuarterId(
 	return data?.id;
 }
 
-// Additional service role client for admin operations
 export function createAdminSupabaseClient(): SupabaseClient {
 	const supabaseUrl = Deno.env.get('SUPABASE_URL');
 	const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');

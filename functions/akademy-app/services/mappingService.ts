@@ -51,36 +51,41 @@ export async function matchData(
       strapiAgreement.headQuarters,
     );
     const normalizedRole = normalizeText(strapiAgreement.role);
-
-    if (!mergedHeadquarters.get(normalizedHeadquarters)) {
-      const mappedHeadquarters = headquartersMap.get(
-        normalizeHeadquarters(strapiAgreement.headQuarters),
-      );
+    const hqFromMerged = mergedHeadquarters.get(normalizedHeadquarters);
+    
+    if (!hqFromMerged) {
+      const normalizedHqForMapping = normalizeHeadquarters(strapiAgreement.headQuarters);
+      const mappedHeadquarters = headquartersMap.get(normalizedHqForMapping);
+      
       if (!mappedHeadquarters) {
-        console.log(`${strapiAgreement.headQuarters} no existe`);
+        console.error(`[ERROR] Agreement ID ${strapiAgreement.id}: Headquarters "${strapiAgreement.headQuarters}" not found in mapping`);
         strapiAgreement.headQuarters = null!;
+      } else {
+        strapiAgreement.headQuarters = mappedHeadquarters;
       }
     } else {
-      strapiAgreement.headQuarters =
-        mergedHeadquarters.get(normalizedHeadquarters) ?? "";
+      strapiAgreement.headQuarters = hqFromMerged;
     }
 
-    if (!mergedRoles.get(normalizedRole)) {
-      const mappedRole = rolesMap.get(
-        normalizeRole(strapiAgreement.role),
-      );
-
+    const roleFromMerged = mergedRoles.get(normalizedRole);
+    
+    if (!roleFromMerged) {
+      const normalizedRoleForMapping = normalizeRole(strapiAgreement.role);
+      const mappedRole = rolesMap.get(normalizedRoleForMapping);
+      
       if (!mappedRole) {
-        console.log(`${strapiAgreement.role} no existe`);
+        console.error(`[ERROR] Agreement ID ${strapiAgreement.id}: Role "${strapiAgreement.role}" not found in mapping`);
         strapiAgreement.role = null!;
+      } else {
+        strapiAgreement.role = mappedRole;
       }
     } else {
-      strapiAgreement.role = mergedRoles.get(normalizedRole)!;
+      strapiAgreement.role = roleFromMerged;
     }
 
     if (!strapiAgreement.headQuarters || !strapiAgreement.role) {
-      console.log(
-        `Headquarters: ${strapiAgreement.headQuarters} || Role: ${strapiAgreement.role}`,
+      console.error(
+        `[ERROR] Agreement ID ${strapiAgreement.id}: Missing mapping - HQ: ${strapiAgreement.headQuarters || 'null'}, Role: ${strapiAgreement.role || 'null'}`,
       );
     }
 
