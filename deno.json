@@ -16,6 +16,7 @@
     "generate:test:users": "deno run --allow-net --allow-env --allow-read --allow-write scripts/create-test-users.ts --env=.env",
     "generate:supabase:types": "deno run --allow-run=npx --allow-write=types --allow-read scripts/generate_supabase_types.ts",
     "generate:dev:environment": "deno run --allow-run --allow-net --allow-env --allow-read --allow-write scripts/regenerate-dev.ts",
+    "test:route:access": "deno run --allow-net --allow-env --allow-read scripts/test-route-access.ts",
     "test": "deno test --allow-net --allow-env --allow-read --env=.env tests/*.ts",
     "test:akademy": "cd functions/akademy && deno task test",
     "test:user-management": "cd functions/user-management && deno task test",

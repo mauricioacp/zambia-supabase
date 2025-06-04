@@ -7,7 +7,6 @@
 
 # windsurf rules
 .windsurfrules
-/credentials.json
 
 # Database backups
 /backups/

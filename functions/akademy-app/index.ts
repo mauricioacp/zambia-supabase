@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { strapiMigrationRoute } from "./routes/migration.ts";
+import {requireMinRoleLevel} from "./middleware/auth.ts";
 
 
 // Only if you need to call from another production endpoint
@@ -48,6 +49,6 @@ app.notFound((c) => {
     }, 404);
 });
 
-app.post('/akademy-app/migrate', strapiMigrationRoute);
+app.post('/akademy-app/migrate',requireMinRoleLevel(95),  strapiMigrationRoute);
 
 Deno.serve(app.fetch);

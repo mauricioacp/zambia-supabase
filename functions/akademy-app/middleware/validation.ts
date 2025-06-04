@@ -18,7 +18,6 @@ export function requestValidationMiddleware() {
       });
     }
 
-    // Add correlation ID for request tracking
     const correlationId = crypto.randomUUID();
     c.set("correlationId", correlationId);
     c.res.headers.set("x-correlation-id", correlationId);

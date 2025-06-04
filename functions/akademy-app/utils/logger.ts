@@ -1,7 +1,3 @@
-/**
- * Structured logging utility for Edge Functions
- */
-
 export interface LogContext {
   correlationId?: string;
   userId?: string;

@@ -1,12 +1,46 @@
-import {client} from "../_environment.ts";
+import { createClient } from '@supabase/supabase-js';
 
-export function getUserRoleLevel(): number | null {
+export async function getUserRoleLevel(token: string): Promise<number | null> {
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('Missing Supabase environment variables');
+      return null;
+    }
 
-      const {
-          data: { user },
-      } = await client.auth.getUser()
-      let metadata = user.user_metadata
+    // Create a client with the user's token
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    });
+
+    const {
+      data: { user },
+      error
+    } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      console.error("Error getting user:", error);
+      return null;
+    }
+
+    console.log("User ID:", user.id);
+    console.log("User metadata:", user.user_metadata);
+
+    const metadata = user.user_metadata;
+
+    if (!metadata || typeof metadata.role_level !== 'number') {
+      console.error("No role_level in user metadata:", metadata);
+      return null;
+    }
+
+    console.log("User role level:", metadata.role_level);
+    return metadata.role_level as number;
 
   } catch (error) {
     console.error("Error extracting role level from token:", error);

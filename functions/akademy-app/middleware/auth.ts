@@ -2,13 +2,19 @@ import { Context, Next } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { getUserRoleLevel } from "../utils/auth.ts";
 
-/**
- * Middleware to verify JWT token and minimum role level
- */
 export function requireMinRoleLevel(minLevel: number) {
   return async (c: Context, next: Next) => {
+    // Get the Authorization header
+    const authHeader = c.req.header('Authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new HTTPException(401, {
+        message: "Missing or invalid Authorization header",
+      });
+    }
 
-    const userLevel = getUserRoleLevel(token);
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    const userLevel = await getUserRoleLevel(token);
 
     if (userLevel === null) {
       throw new HTTPException(401, {
@@ -23,8 +29,8 @@ export function requireMinRoleLevel(minLevel: number) {
       });
     }
 
-    // Store user level in context for later use
     c.set("userLevel", userLevel);
+    c.set("userToken", token); // Store token for later use
     await next();
   };
 }
