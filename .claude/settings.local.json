@@ -26,7 +26,8 @@
       "Bash(./test-migration-auth.ts)",
       "Bash(docker volume:*)",
       "mcp__postgres__query",
-      "mcp__supabase__query"
+      "mcp__supabase__query",
+      "Bash(deno:*)"
     ],
     "deny": []
   },
