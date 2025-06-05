@@ -1,7 +1,6 @@
 import { createClient } from 'supabase';
 import { loadSync } from '@std/dotenv';
 import * as path from '@std/path';
-import {Database} from "./types/supabase.type.ts";
 
 const currentDir = path.dirname(path.fromFileUrl(import.meta.url));
 const envFilePath = path.resolve(currentDir, '.env');
@@ -10,10 +9,6 @@ loadSync({
 	envPath: envFilePath,
 	export: true,
 });
-
-export const SUPABASE_PROJECT_ID = Deno.env.get('SUPABASE_PROJECT_ID');
-export const SUPABASE_DB_PASSWORD = Deno.env.get('SUPABASE_DB_PASSWORD');
-
 
 export const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 export const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get(
@@ -39,10 +34,4 @@ export const SUPA_CLIENT = createClient(
 	SUPABASE_SERVICE_ROLE_KEY,
 );
 
-export const supabaseClient= createClient<Database>(
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY,
-);
-
-export const EXTERNAL_KEY = Deno.env.get('EXTERNAL_KEY');
 export const level95Token = Deno.env.get("level95");
