@@ -41,7 +41,7 @@ VALUES ('Mendoza', (SELECT id FROM countries WHERE code = 'AR')),
        ('Villa María', (SELECT id FROM countries WHERE code = 'AR')),
        ('Resistencia', (SELECT id FROM countries WHERE code = 'AR')),
        ('San Juan', (SELECT id FROM countries WHERE code = 'AR')),
-       ('Konsejo Akademíko', (SELECT id FROM countries WHERE code = 'AR'));
+       ('Konsejo Akademiko', (SELECT id FROM countries WHERE code = 'AR'));
 
 -- España (ES)
 INSERT INTO headquarters (name, country_id)
@@ -84,24 +84,25 @@ VALUES ('Barcelona', (SELECT id FROM countries WHERE code = 'ES')),
        ('Pisuerga', (SELECT id FROM countries WHERE code = 'ES')),
        ('Logroño', (SELECT id FROM countries WHERE code = 'ES')),
        ('Gijón', (SELECT id FROM countries WHERE code = 'ES')),
-       ('Konsejo Akademíko', (SELECT id FROM countries WHERE code = 'ES'));
+       ('Konsejo Akademiko', (SELECT id FROM countries WHERE code = 'ES'));
 
 -- Ecuador (EC)
 INSERT INTO headquarters (name, country_id)
 VALUES ('Quito', (SELECT id FROM countries WHERE code = 'EC')),
        ('Ambato', (SELECT id FROM countries WHERE code = 'EC')),
-       ('Konsejo Akademíko', (SELECT id FROM countries WHERE code = 'EC'));
+       ('Konsejo Akademiko', (SELECT id FROM countries WHERE code = 'EC'));
 
 -- México (MX)
 INSERT INTO headquarters (name, country_id)
 VALUES ('Ciudad de México', (SELECT id FROM countries WHERE code = 'MX')),
        ('Monterrey', (SELECT id FROM countries WHERE code = 'MX')),
        ('Tepatitlan de Morelos', (SELECT id FROM countries WHERE code = 'MX')),
-       ('Konsejo Akademíko', (SELECT id FROM countries WHERE code = 'MX'));
+       ('Konsejo Akademiko', (SELECT id FROM countries WHERE code = 'MX'));
 
 -- Perú (PE)
 INSERT INTO headquarters (name, country_id)
-VALUES ('Lima', (SELECT id FROM countries WHERE code = 'PE'));
+VALUES ('Lima', (SELECT id FROM countries WHERE code = 'PE')),
+       ('Konsejo Akademiko', (SELECT id FROM countries WHERE code = 'PE'));
 
 -- Colombia (CO)
 INSERT INTO headquarters (name, country_id)
@@ -111,27 +112,28 @@ VALUES ('Medellín', (SELECT id FROM countries WHERE code = 'CO')),
        ('Bucaramanga', (SELECT id FROM countries WHERE code = 'CO')),
        ('Aburra Sur', (SELECT id FROM countries WHERE code = 'CO')),
        ('ISA', (SELECT id FROM countries WHERE code = 'CO')),
-       ('Konsejo Akademíko', (SELECT id FROM countries WHERE code = 'CO'));
+       ('Konsejo Akademiko', (SELECT id FROM countries WHERE code = 'CO'));
 
 -- Bolivia (BO)
 INSERT INTO headquarters (name, country_id)
 VALUES ('Santa Cruz', (SELECT id FROM countries WHERE code = 'BO')),
-       ('Konsejo Akademíko', (SELECT id FROM countries WHERE code = 'BO'));
+       ('Konsejo Akademiko', (SELECT id FROM countries WHERE code = 'BO'));
 
 -- Uruguay (UY)
 INSERT INTO headquarters (name, country_id)
 VALUES ('Montevideo', (SELECT id FROM countries WHERE code = 'UY')),
-       ('Konsejo Akademíko', (SELECT id FROM countries WHERE code = 'UY'));
+       ('Konsejo Akademiko', (SELECT id FROM countries WHERE code = 'UY'));
 
 -- Chile (CL)
 INSERT INTO headquarters (name, country_id)
 VALUES ('Santiago', (SELECT id FROM countries WHERE code = 'CL')),
-       ('Konsejo Akademíko', (SELECT id FROM countries WHERE code = 'CL'));
+       ('Konsejo Akademiko', (SELECT id FROM countries WHERE code = 'CL'));
 
 -- Webinar (país Internacional-Webinar, I_WB)
 INSERT INTO headquarters (name, country_id)
 VALUES ('Webinar Septiembre', (SELECT id FROM countries WHERE code = 'I_WB')),
-       ('Webinar Marzo', (SELECT id FROM countries WHERE code = 'I_WB'));
+       ('Webinar Marzo', (SELECT id FROM countries WHERE code = 'I_WB')),
+       ('Konsejo Akademiko', (SELECT id FROM countries WHERE code = 'I_WB'));
 
 
 -- ==========================================

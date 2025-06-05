@@ -16,15 +16,16 @@
     "generate:test:users": "deno run --allow-net --allow-env --allow-read --allow-write scripts/create-test-users.ts --env=.env",
     "generate:supabase:types": "deno run --allow-run=npx --allow-write=types --allow-read scripts/generate_supabase_types.ts",
     "generate:dev:environment": "deno run --allow-run --allow-net --allow-env --allow-read --allow-write scripts/regenerate-dev.ts",
+    "test:route:access": "deno run --allow-net --allow-env --allow-read scripts/test-route-access.ts",
     "test": "deno test --allow-net --allow-env --allow-read --env=.env tests/*.ts",
     "test:akademy": "cd functions/akademy && deno task test",
     "test:user-management": "cd functions/user-management && deno task test",
-    "branch:feature": "deno run --allow-run scripts/create-feature-branch.ts",
-    "branch:hotfix": "deno run --allow-run scripts/create-feature-branch.ts --type=hotfix",
-    "deploy:production": "deno run --allow-all scripts/deploy-production.ts",
-    "deploy:dry-run": "deno run --allow-all scripts/deploy-production.ts --dry-run",
-    "deploy:functions": "deno run --allow-all scripts/deploy-production.ts --functions-only",
-    "deploy:database": "deno run --allow-all scripts/deploy-production.ts --db-only"
+    "deploy:db:seed": "npx supabase db push --include-seed",
+    "deploy:functions": "npx supabase functions deploy",
+    "backup:db": "npx supabase db dump -f backup-$(date +%Y%m%d-%H%M%S).sql",
+    "reset:db": "npx supabase db reset --linked",
+    "diff:schema": "npx supabase db diff --linked --use-migra",
+    "serve:local": "npx supabase functions serve --env-file .env.local"
   },
   "fmt": {
     "useTabs": true,

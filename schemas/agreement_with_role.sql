@@ -17,7 +17,7 @@
  * - SELECT get_agreement_with_role_by_id('123e4567-e89b-12d3-a456-426614174000');
  */
 
-create view public.agreement_with_role as
+create view public.agreement_with_role WITH (security_invoker = on) as
 SELECT a.id,
        a.user_id,
        a.headquarter_id,
