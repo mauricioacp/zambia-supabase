@@ -20,6 +20,7 @@ interface AppConfig {
 
 const setupConfiguration = (authHeader: string): AppConfig => {
 	const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+	const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 	const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 	const strapiApiUrl = Deno.env.get('STRAPI_API_URL');
@@ -31,13 +32,19 @@ const setupConfiguration = (authHeader: string): AppConfig => {
 		);
 	}
 
-	const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+	const supabaseKey = supabaseServiceRoleKey || supabaseAnonKey;
+	const supabaseClient = createClient(supabaseUrl, supabaseKey, {
 		global: {
-			headers: { Authorization: authHeader! },
+			headers: { Authorization: `Bearer ${supabaseKey}` },
+		},
+		auth: {
+			autoRefreshToken: false,
+			persistSession: false,
 		},
 	});
 
 	console.log('Environment variables loaded and Supabase client created.');
+	console.log(`Using ${supabaseServiceRoleKey ? 'service role' : 'anon'} key for database operations.`);
 
 	return {
 		supabaseClient,

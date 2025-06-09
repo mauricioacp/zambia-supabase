@@ -106,14 +106,12 @@ CREATE INDEX idx_agreements_fts_name_lastname ON agreements USING gin (fts_name_
 ALTER TABLE agreements
     ENABLE ROW LEVEL SECURITY;
 
--- SELECT: Own record, general director+ or local manager+ in same HQ
+-- SELECT: Own record or local manager+ (level 50+) can see all
 CREATE POLICY agreements_select_own_hq_high
     ON agreements FOR SELECT
     USING (
     user_id = (select auth.uid()) OR -- Own record
-    fn_is_general_director_or_higher() OR
-    (fn_is_local_manager_or_higher() AND
-     fn_is_current_user_hq_equal_to(headquarter_id)) -- Manager + in same HQ
+    fn_is_local_manager_or_higher() -- Level 50+ can see all agreements
     );
 
 -- INSERT (anon): Allow anonymous and authenticated users to create prospects

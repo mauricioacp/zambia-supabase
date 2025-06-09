@@ -2,26 +2,34 @@
 
 -- Helper function to check if user has workflow admin role (level 80+)
 CREATE OR REPLACE FUNCTION is_workflow_admin()
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
 BEGIN
 	-- Konsejo members (80+) and above can administer workflows
-	RETURN fn_is_konsejo_member_or_higher();
+	RETURN public.fn_is_konsejo_member_or_higher();
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Helper function to check if user is involved in a workflow
 CREATE OR REPLACE FUNCTION is_workflow_participant(p_workflow_id UUID)
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
 BEGIN
 	RETURN EXISTS (
 		SELECT 1 
-		FROM workflow_actions wa
-		JOIN workflow_stage_instances wsi ON wa.stage_instance_id = wsi.id
+		FROM public.workflow_actions wa
+		JOIN public.workflow_stage_instances wsi ON wa.stage_instance_id = wsi.id
 		WHERE wsi.workflow_instance_id = p_workflow_id
 		AND wa.assigned_to = auth.uid()
 	);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Workflow Templates Policies
 CREATE POLICY "Workflow admins can manage templates"

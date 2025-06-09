@@ -41,57 +41,145 @@ SELECT a.id,
 FROM agreements a
          LEFT JOIN roles r ON a.role_id = r.id;
 
-ALTER VIEW agreement_with_role SET (security_invoker = on);
-
 CREATE OR REPLACE FUNCTION get_agreements_with_role()
 RETURNS SETOF agreement_with_role
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = ''
 AS $$
-  SELECT * FROM public.agreement_with_role;
+BEGIN
+  RETURN QUERY
+  SELECT a.id,
+         a.user_id,
+         a.headquarter_id,
+         a.season_id,
+         a.status,
+         a.email,
+         a.document_number,
+         a.phone,
+         a.name,
+         a.last_name,
+         a.fts_name_lastname,
+         a.address,
+         a.signature_data,
+         a.volunteering_agreement,
+         a.ethical_document_agreement,
+         a.mailing_agreement,
+         a.age_verification,
+         a.created_at,
+         a.updated_at,
+         COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb) AS role
+  FROM public.agreements a
+  LEFT JOIN public.roles r ON a.role_id = r.id
+  WHERE public.fn_can_access_agreement(a.headquarter_id, a.user_id);
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION get_agreements_by_role(role_name TEXT)
 RETURNS SETOF agreement_with_role
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = ''
 AS $$
-  SELECT awr.*
-  FROM public.agreement_with_role awr
-  WHERE awr.role->>'role_name' = role_name;
+BEGIN
+  RETURN QUERY
+  SELECT a.id,
+         a.user_id,
+         a.headquarter_id,
+         a.season_id,
+         a.status,
+         a.email,
+         a.document_number,
+         a.phone,
+         a.name,
+         a.last_name,
+         a.fts_name_lastname,
+         a.address,
+         a.signature_data,
+         a.volunteering_agreement,
+         a.ethical_document_agreement,
+         a.mailing_agreement,
+         a.age_verification,
+         a.created_at,
+         a.updated_at,
+         COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb) AS role
+  FROM public.agreements a
+  LEFT JOIN public.roles r ON a.role_id = r.id
+  WHERE r.name = role_name
+    AND public.fn_can_access_agreement(a.headquarter_id, a.user_id);
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION get_agreement_by_role_id(role_id UUID)
 RETURNS SETOF agreement_with_role
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = ''
 AS $$
-  SELECT awr.*
-  FROM public.agreement_with_role awr
-  WHERE awr.role->>'role_id' = role_id::text;
+BEGIN
+  RETURN QUERY
+  SELECT a.id,
+         a.user_id,
+         a.headquarter_id,
+         a.season_id,
+         a.status,
+         a.email,
+         a.document_number,
+         a.phone,
+         a.name,
+         a.last_name,
+         a.fts_name_lastname,
+         a.address,
+         a.signature_data,
+         a.volunteering_agreement,
+         a.ethical_document_agreement,
+         a.mailing_agreement,
+         a.age_verification,
+         a.created_at,
+         a.updated_at,
+         COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb) AS role
+  FROM public.agreements a
+  LEFT JOIN public.roles r ON a.role_id = r.id
+  WHERE a.role_id = role_id
+    AND public.fn_can_access_agreement(a.headquarter_id, a.user_id);
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION get_agreements_by_role_string(role_string TEXT)
 RETURNS SETOF agreement_with_role
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = ''
 AS $$
-  SELECT awr.*
-  FROM public.agreement_with_role awr
-  WHERE awr.role->>'role_name' ILIKE '%' || role_string || '%'
-  OR awr.role->>'role_id' IN (
-    SELECT r.id::text
-    FROM public.roles r
-    WHERE r.code ILIKE '%' || role_string || '%'
-  );
+BEGIN
+  RETURN QUERY
+  SELECT a.id,
+         a.user_id,
+         a.headquarter_id,
+         a.season_id,
+         a.status,
+         a.email,
+         a.document_number,
+         a.phone,
+         a.name,
+         a.last_name,
+         a.fts_name_lastname,
+         a.address,
+         a.signature_data,
+         a.volunteering_agreement,
+         a.ethical_document_agreement,
+         a.mailing_agreement,
+         a.age_verification,
+         a.created_at,
+         a.updated_at,
+         COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb) AS role
+  FROM public.agreements a
+  LEFT JOIN public.roles r ON a.role_id = r.id
+  WHERE (r.name ILIKE '%' || role_string || '%' OR r.code ILIKE '%' || role_string || '%')
+    AND public.fn_can_access_agreement(a.headquarter_id, a.user_id);
+END;
 $$;
 
--- Updated to use FTS for name/last_name search and window function for count
--- See review notes for rationale and performance considerations
 CREATE OR REPLACE FUNCTION get_agreements_with_role_paginated(
   p_limit INTEGER DEFAULT 10,
   p_offset INTEGER DEFAULT 0,
@@ -111,44 +199,68 @@ DECLARE
   v_results JSONB;
   v_data JSONB;
 BEGIN
+  -- Build the WHERE clause with access control
   SELECT COUNT(*) INTO v_total
-  FROM public.agreement_with_role awr
+  FROM public.agreements a
+  LEFT JOIN public.roles r ON a.role_id = r.id
   WHERE 
-    (p_status IS NULL OR awr.status = p_status)
-    AND (p_headquarter_id IS NULL OR awr.headquarter_id = p_headquarter_id)
-    AND (p_season_id IS NULL OR awr.season_id = p_season_id)
+    (p_status IS NULL OR a.status = p_status)
+    AND (p_headquarter_id IS NULL OR a.headquarter_id = p_headquarter_id)
+    AND (p_season_id IS NULL OR a.season_id = p_season_id)
     AND (p_search IS NULL OR 
-         awr.name ILIKE '%' || p_search || '%' OR 
-         awr.last_name ILIKE '%' || p_search || '%' OR
-         awr.email ILIKE '%' || p_search || '%' OR
-         awr.document_number ILIKE '%' || p_search || '%')
-    AND (p_role_id IS NULL OR awr.role->>'role_id' = p_role_id::text);
+         a.name ILIKE '%' || p_search || '%' OR 
+         a.last_name ILIKE '%' || p_search || '%' OR
+         a.email ILIKE '%' || p_search || '%' OR
+         a.document_number ILIKE '%' || p_search || '%')
+    AND (p_role_id IS NULL OR a.role_id = p_role_id)
+    -- Apply access control based on role level and headquarter
+    AND public.fn_can_access_agreement(a.headquarter_id, a.user_id);
 
   SELECT jsonb_agg(to_jsonb(awr)) INTO v_data
   FROM (
-    SELECT *
-    FROM public.agreement_with_role awr
+    SELECT a.id,
+           a.user_id,
+           a.headquarter_id,
+           a.season_id,
+           a.status,
+           a.email,
+           a.document_number,
+           a.phone,
+           a.name,
+           a.last_name,
+           a.fts_name_lastname,
+           a.address,
+           a.signature_data,
+           a.volunteering_agreement,
+           a.ethical_document_agreement,
+           a.mailing_agreement,
+           a.age_verification,
+           a.created_at,
+           a.updated_at,
+           COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb) AS role
+    FROM public.agreements a
+    LEFT JOIN public.roles r ON a.role_id = r.id
     WHERE 
-      (p_status IS NULL OR awr.status = p_status)
-      AND (p_headquarter_id IS NULL OR awr.headquarter_id = p_headquarter_id)
-      AND (p_season_id IS NULL OR awr.season_id = p_season_id)
+      (p_status IS NULL OR a.status = p_status)
+      AND (p_headquarter_id IS NULL OR a.headquarter_id = p_headquarter_id)
+      AND (p_season_id IS NULL OR a.season_id = p_season_id)
       AND (p_search IS NULL OR 
-           awr.name ILIKE '%' || p_search || '%' OR 
-           awr.last_name ILIKE '%' || p_search || '%' OR
-           awr.email ILIKE '%' || p_search || '%' OR
-           awr.document_number ILIKE '%' || p_search || '%')
-      AND (p_role_id IS NULL OR awr.role->>'role_id' = p_role_id::text)
-    ORDER BY awr.created_at DESC
+           a.name ILIKE '%' || p_search || '%' OR 
+           a.last_name ILIKE '%' || p_search || '%' OR
+           a.email ILIKE '%' || p_search || '%' OR
+           a.document_number ILIKE '%' || p_search || '%')
+      AND (p_role_id IS NULL OR a.role_id = p_role_id)
+      -- Apply access control based on role level and headquarter
+      AND public.fn_can_access_agreement(a.headquarter_id, a.user_id)
+    ORDER BY a.created_at DESC
     LIMIT p_limit
     OFFSET p_offset
   ) awr;
 
-  -- Handle case when no results are found
   IF v_data IS NULL THEN
     v_data := '[]'::jsonb;
   END IF;
 
-  -- Construct the final result object
   v_results := jsonb_build_object(
     'data', v_data,
     'pagination', jsonb_build_object(
@@ -173,12 +285,35 @@ AS $$
 DECLARE
   v_result JSONB;
 BEGIN
-  SELECT to_jsonb(awr) INTO v_result
-  FROM public.agreement_with_role awr
-  WHERE awr.id = p_agreement_id;
+  SELECT to_jsonb(row(
+    a.id,
+    a.user_id,
+    a.headquarter_id,
+    a.season_id,
+    a.status,
+    a.email,
+    a.document_number,
+    a.phone,
+    a.name,
+    a.last_name,
+    a.fts_name_lastname,
+    a.address,
+    a.signature_data,
+    a.volunteering_agreement,
+    a.ethical_document_agreement,
+    a.mailing_agreement,
+    a.age_verification,
+    a.created_at,
+    a.updated_at,
+    COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb)
+  )) INTO v_result
+  FROM public.agreements a
+  LEFT JOIN public.roles r ON a.role_id = r.id
+  WHERE a.id = p_agreement_id
+    AND public.fn_can_access_agreement(a.headquarter_id, a.user_id);
 
   IF v_result IS NULL THEN
-    RETURN jsonb_build_object('error', 'Agreement not found');
+    RETURN jsonb_build_object('error', 'Agreement not found or access denied');
   END IF;
 
   RETURN v_result;

@@ -173,3 +173,32 @@ $$
 SELECT public.fn_get_current_hq_id() = hq_id;
 $$;
 
+-- Function to verify if a user can access a specific agreement based on role level
+-- Level 80+: Full access (Konsejo members and above)
+-- Level 50-79: Only their headquarter (Local directors)
+-- Level 21-49: Only their headquarter (Assistants)
+-- Level 1-20: Only their own agreement (Students, facilitators, companions)
+CREATE OR REPLACE FUNCTION fn_can_access_agreement(p_agreement_hq_id uuid, p_agreement_user_id uuid)
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT 
+    CASE 
+        -- Level 80+: Full access (Konsejo and above)
+        WHEN public.fn_get_current_role_level() >= 80 THEN true
+        
+        -- Level 50-79: Only their headquarter (Local directors)
+        WHEN public.fn_get_current_role_level() >= 50 THEN 
+            p_agreement_hq_id = public.fn_get_current_hq_id()
+        
+        -- Level 21-49: Only their headquarter (Assistants)
+        WHEN public.fn_get_current_role_level() >= 21 THEN 
+            p_agreement_hq_id = public.fn_get_current_hq_id()
+            
+        -- Level 1-20: Only their own agreement
+        ELSE p_agreement_user_id = auth.uid()
+    END;
+$$;
+
