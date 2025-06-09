@@ -6,6 +6,17 @@ import { strapiMigrationRoute } from "./routes/migration.ts";
 import { createUserFromAgreement } from "./routes/create-user.ts";
 import { resetUserPassword } from "./routes/reset-password.ts";
 import { deactivateUser } from "./routes/deactivate-user.ts";
+import { 
+	searchUsers, 
+	sendNotification, 
+	sendRoleNotification, 
+	getNotifications, 
+	getUnreadCount, 
+	markNotificationsRead, 
+	archiveNotification,
+	getNotificationPreferences,
+	updateNotificationPreferences 
+} from "./routes/notifications.ts";
 import { requireMinRoleLevel } from "./middleware/auth.ts";
 
 export const app = new Hono();
@@ -55,5 +66,16 @@ app.post('/akademy-app/migrate', requireMinRoleLevel(95), strapiMigrationRoute);
 app.post('/akademy-app/create-user', requireMinRoleLevel(30), createUserFromAgreement);
 app.post('/akademy-app/reset-password', requireMinRoleLevel(1), resetUserPassword);
 app.post('/akademy-app/deactivate-user', requireMinRoleLevel(50), deactivateUser);
+
+
+app.get('/akademy-app/users/search', requireMinRoleLevel(1), searchUsers);
+app.post('/akademy-app/notifications/send', requireMinRoleLevel(1), sendNotification);
+app.post('/akademy-app/notifications/send-role', requireMinRoleLevel(50), sendRoleNotification);
+app.get('/akademy-app/notifications', requireMinRoleLevel(1), getNotifications);
+app.get('/akademy-app/notifications/unread-count', requireMinRoleLevel(1), getUnreadCount);
+app.post('/akademy-app/notifications/mark-read', requireMinRoleLevel(1), markNotificationsRead);
+app.post('/akademy-app/notifications/:id/archive', requireMinRoleLevel(1), archiveNotification);
+app.get('/akademy-app/notifications/preferences', requireMinRoleLevel(1), getNotificationPreferences);
+app.put('/akademy-app/notifications/preferences', requireMinRoleLevel(1), updateNotificationPreferences);
 
 Deno.serve(app.fetch);

@@ -3,6 +3,12 @@ create extension if not exists "moddatetime" with schema "extensions";
 
 create type "public"."collaborator_status" as enum ('active', 'inactive', 'standby');
 
+create type "public"."notification_channel" as enum ('in_app', 'email', 'sms', 'push');
+
+create type "public"."notification_priority" as enum ('low', 'medium', 'high', 'urgent');
+
+create type "public"."notification_type" as enum ('system', 'direct_message', 'action_required', 'reminder', 'alert', 'achievement', 'role_based');
+
 create sequence "public"."audit_log_id_seq";
 
 create sequence "public"."event_types_id_seq";
@@ -156,6 +162,89 @@ create table "public"."master_workshop_types" (
 
 alter table "public"."master_workshop_types" enable row level security;
 
+create table "public"."notification_deliveries" (
+    "id" uuid not null default gen_random_uuid(),
+    "notification_id" uuid not null,
+    "channel" notification_channel not null,
+    "status" text not null default 'pending'::text,
+    "sent_at" timestamp with time zone,
+    "delivered_at" timestamp with time zone,
+    "failed_at" timestamp with time zone,
+    "error_message" text,
+    "metadata" jsonb default '{}'::jsonb,
+    "created_at" timestamp with time zone default now()
+);
+
+
+alter table "public"."notification_deliveries" enable row level security;
+
+create table "public"."notification_preferences" (
+    "id" uuid not null default gen_random_uuid(),
+    "user_id" uuid not null,
+    "enabled" boolean default true,
+    "quiet_hours_start" time without time zone,
+    "quiet_hours_end" time without time zone,
+    "timezone" text default 'UTC'::text,
+    "channel_preferences" jsonb default '{}'::jsonb,
+    "blocked_senders" uuid[] default '{}'::uuid[],
+    "blocked_categories" text[] default '{}'::text[],
+    "priority_threshold" notification_priority default 'low'::notification_priority,
+    "created_at" timestamp with time zone default now(),
+    "updated_at" timestamp with time zone default now()
+);
+
+
+alter table "public"."notification_preferences" enable row level security;
+
+create table "public"."notification_templates" (
+    "id" uuid not null default gen_random_uuid(),
+    "code" text not null,
+    "type" notification_type not null,
+    "name" text not null,
+    "description" text,
+    "title_template" text not null,
+    "body_template" text not null,
+    "default_priority" notification_priority default 'medium'::notification_priority,
+    "default_channels" notification_channel[] default '{in_app}'::notification_channel[],
+    "variables" jsonb default '{}'::jsonb,
+    "metadata" jsonb default '{}'::jsonb,
+    "is_active" boolean default true,
+    "created_at" timestamp with time zone default now(),
+    "updated_at" timestamp with time zone default now()
+);
+
+
+alter table "public"."notification_templates" enable row level security;
+
+create table "public"."notifications" (
+    "id" uuid not null default gen_random_uuid(),
+    "type" notification_type not null,
+    "priority" notification_priority default 'medium'::notification_priority,
+    "sender_id" uuid,
+    "sender_type" text default 'user'::text,
+    "recipient_id" uuid,
+    "recipient_role_code" text,
+    "recipient_role_level" integer,
+    "title" text not null,
+    "body" text not null,
+    "data" jsonb default '{}'::jsonb,
+    "category" text,
+    "tags" text[] default '{}'::text[],
+    "expires_at" timestamp with time zone,
+    "is_read" boolean default false,
+    "read_at" timestamp with time zone,
+    "is_archived" boolean default false,
+    "archived_at" timestamp with time zone,
+    "related_entity_type" text,
+    "related_entity_id" uuid,
+    "action_url" text,
+    "created_at" timestamp with time zone default now(),
+    "updated_at" timestamp with time zone default now()
+);
+
+
+alter table "public"."notifications" enable row level security;
+
 create table "public"."processes" (
     "id" uuid not null default uuid_generate_v4(),
     "created_at" timestamp with time zone default now(),
@@ -259,6 +348,24 @@ create table "public"."students" (
 
 
 alter table "public"."students" enable row level security;
+
+create table "public"."user_search_index" (
+    "user_id" uuid not null,
+    "full_name" text not null,
+    "email" text not null,
+    "role_code" text not null,
+    "role_name" text not null,
+    "role_level" integer not null,
+    "headquarter_name" text,
+    "search_vector" tsvector generated always as ((((setweight(to_tsvector('spanish'::regconfig, COALESCE(full_name, ''::text)), 'A'::"char") || setweight(to_tsvector('spanish'::regconfig, COALESCE(email, ''::text)), 'B'::"char")) || setweight(to_tsvector('spanish'::regconfig, COALESCE(role_name, ''::text)), 'C'::"char")) || setweight(to_tsvector('spanish'::regconfig, COALESCE(headquarter_name, ''::text)), 'D'::"char"))) stored,
+    "is_active" boolean default true,
+    "last_seen" timestamp with time zone,
+    "created_at" timestamp with time zone default now(),
+    "updated_at" timestamp with time zone default now()
+);
+
+
+alter table "public"."user_search_index" enable row level security;
 
 create table "public"."workflow_action_history" (
     "id" uuid not null default gen_random_uuid(),
@@ -517,6 +624,22 @@ CREATE INDEX idx_facilitator_workshop_map_workshop_season ON public.facilitator_
 
 CREATE INDEX idx_headquarters_country_id ON public.headquarters USING btree (country_id);
 
+CREATE INDEX idx_notification_templates_code ON public.notification_templates USING btree (code) WHERE is_active;
+
+CREATE INDEX idx_notifications_created ON public.notifications USING btree (created_at DESC);
+
+CREATE INDEX idx_notifications_expires ON public.notifications USING btree (expires_at) WHERE (expires_at IS NOT NULL);
+
+CREATE INDEX idx_notifications_priority ON public.notifications USING btree (priority);
+
+CREATE INDEX idx_notifications_recipient ON public.notifications USING btree (recipient_id) WHERE (NOT is_archived);
+
+CREATE INDEX idx_notifications_related ON public.notifications USING btree (related_entity_type, related_entity_id);
+
+CREATE INDEX idx_notifications_type ON public.notifications USING btree (type);
+
+CREATE INDEX idx_notifications_unread ON public.notifications USING btree (recipient_id) WHERE ((NOT is_read) AND (NOT is_archived));
+
 CREATE INDEX idx_processes_status ON public.processes USING btree (status);
 
 CREATE INDEX idx_roles_code ON public.roles USING btree (code);
@@ -549,6 +672,10 @@ CREATE INDEX idx_students_season_id ON public.students USING btree (season_id);
 
 CREATE INDEX idx_students_user_id ON public.students USING btree (user_id);
 
+CREATE INDEX idx_user_search_role ON public.user_search_index USING btree (role_code, role_level);
+
+CREATE INDEX idx_user_search_vector ON public.user_search_index USING gin (search_vector);
+
 CREATE INDEX idx_workflow_action_history_action_id ON public.workflow_action_history USING btree (action_id);
 
 CREATE INDEX idx_workflow_action_history_created_at ON public.workflow_action_history USING btree (created_at);
@@ -577,6 +704,20 @@ CREATE UNIQUE INDEX master_workshop_types_master_name_key ON public.master_works
 
 CREATE UNIQUE INDEX master_workshop_types_pkey ON public.master_workshop_types USING btree (id);
 
+CREATE UNIQUE INDEX notification_deliveries_notification_id_channel_key ON public.notification_deliveries USING btree (notification_id, channel);
+
+CREATE UNIQUE INDEX notification_deliveries_pkey ON public.notification_deliveries USING btree (id);
+
+CREATE UNIQUE INDEX notification_preferences_pkey ON public.notification_preferences USING btree (id);
+
+CREATE UNIQUE INDEX notification_preferences_user_id_key ON public.notification_preferences USING btree (user_id);
+
+CREATE UNIQUE INDEX notification_templates_code_key ON public.notification_templates USING btree (code);
+
+CREATE UNIQUE INDEX notification_templates_pkey ON public.notification_templates USING btree (id);
+
+CREATE UNIQUE INDEX notifications_pkey ON public.notifications USING btree (id);
+
 CREATE UNIQUE INDEX processes_pkey ON public.processes USING btree (id);
 
 CREATE UNIQUE INDEX roles_code_key ON public.roles USING btree (code);
@@ -600,6 +741,8 @@ CREATE UNIQUE INDEX unique_season_name_per_hq ON public.seasons USING btree (nam
 CREATE UNIQUE INDEX uq_local_name_hq_season ON public.scheduled_workshops USING btree (local_name, headquarter_id, season_id);
 
 CREATE UNIQUE INDEX uq_student_workshop_attendance ON public.student_attendance USING btree (scheduled_workshop_id, student_id);
+
+CREATE UNIQUE INDEX user_search_index_pkey ON public.user_search_index USING btree (user_id);
 
 CREATE UNIQUE INDEX workflow_action_history_pkey ON public.workflow_action_history USING btree (id);
 
@@ -649,6 +792,14 @@ alter table "public"."headquarters" add constraint "headquarters_pkey" PRIMARY K
 
 alter table "public"."master_workshop_types" add constraint "master_workshop_types_pkey" PRIMARY KEY using index "master_workshop_types_pkey";
 
+alter table "public"."notification_deliveries" add constraint "notification_deliveries_pkey" PRIMARY KEY using index "notification_deliveries_pkey";
+
+alter table "public"."notification_preferences" add constraint "notification_preferences_pkey" PRIMARY KEY using index "notification_preferences_pkey";
+
+alter table "public"."notification_templates" add constraint "notification_templates_pkey" PRIMARY KEY using index "notification_templates_pkey";
+
+alter table "public"."notifications" add constraint "notifications_pkey" PRIMARY KEY using index "notifications_pkey";
+
 alter table "public"."processes" add constraint "processes_pkey" PRIMARY KEY using index "processes_pkey";
 
 alter table "public"."roles" add constraint "roles_pkey" PRIMARY KEY using index "roles_pkey";
@@ -662,6 +813,8 @@ alter table "public"."strapi_migrations" add constraint "strapi_migrations_pkey"
 alter table "public"."student_attendance" add constraint "student_attendance_pkey" PRIMARY KEY using index "student_attendance_pkey";
 
 alter table "public"."students" add constraint "students_pkey" PRIMARY KEY using index "students_pkey";
+
+alter table "public"."user_search_index" add constraint "user_search_index_pkey" PRIMARY KEY using index "user_search_index_pkey";
 
 alter table "public"."workflow_action_history" add constraint "workflow_action_history_pkey" PRIMARY KEY using index "workflow_action_history_pkey";
 
@@ -789,6 +942,28 @@ alter table "public"."headquarters" validate constraint "headquarters_status_che
 
 alter table "public"."master_workshop_types" add constraint "master_workshop_types_master_name_key" UNIQUE using index "master_workshop_types_master_name_key";
 
+alter table "public"."notification_deliveries" add constraint "notification_deliveries_notification_id_channel_key" UNIQUE using index "notification_deliveries_notification_id_channel_key";
+
+alter table "public"."notification_deliveries" add constraint "notification_deliveries_notification_id_fkey" FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE not valid;
+
+alter table "public"."notification_deliveries" validate constraint "notification_deliveries_notification_id_fkey";
+
+alter table "public"."notification_preferences" add constraint "notification_preferences_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE not valid;
+
+alter table "public"."notification_preferences" validate constraint "notification_preferences_user_id_fkey";
+
+alter table "public"."notification_preferences" add constraint "notification_preferences_user_id_key" UNIQUE using index "notification_preferences_user_id_key";
+
+alter table "public"."notification_templates" add constraint "notification_templates_code_key" UNIQUE using index "notification_templates_code_key";
+
+alter table "public"."notifications" add constraint "notifications_recipient_id_fkey" FOREIGN KEY (recipient_id) REFERENCES auth.users(id) ON DELETE CASCADE not valid;
+
+alter table "public"."notifications" validate constraint "notifications_recipient_id_fkey";
+
+alter table "public"."notifications" add constraint "notifications_sender_id_fkey" FOREIGN KEY (sender_id) REFERENCES auth.users(id) ON DELETE SET NULL not valid;
+
+alter table "public"."notifications" validate constraint "notifications_sender_id_fkey";
+
 alter table "public"."processes" add constraint "processes_status_check" CHECK ((status = ANY (ARRAY['active'::text, 'inactive'::text]))) not valid;
 
 alter table "public"."processes" validate constraint "processes_status_check";
@@ -878,6 +1053,10 @@ alter table "public"."students" add constraint "students_user_id_fkey" FOREIGN K
 alter table "public"."students" validate constraint "students_user_id_fkey";
 
 alter table "public"."students" add constraint "students_user_id_key" UNIQUE using index "students_user_id_key";
+
+alter table "public"."user_search_index" add constraint "user_search_index_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE not valid;
+
+alter table "public"."user_search_index" validate constraint "user_search_index_user_id_fkey";
 
 alter table "public"."workflow_action_history" add constraint "workflow_action_history_action_id_fkey" FOREIGN KEY (action_id) REFERENCES workflow_actions(id) ON DELETE CASCADE not valid;
 
@@ -1271,16 +1450,17 @@ CREATE OR REPLACE FUNCTION public.auto_assign_workflow_actions()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE
-	v_role_assignment workflow_action_role_assignments%ROWTYPE;
+	v_role_assignment public.workflow_action_role_assignments%ROWTYPE;
 	v_assignee_id UUID;
 BEGIN
 	-- Only process when stage becomes active
 	IF NEW.status = 'active' AND OLD.status != 'active' THEN
 		-- Get role assignments for this stage
 		FOR v_role_assignment IN 
-			SELECT * FROM workflow_action_role_assignments
+			SELECT * FROM public.workflow_action_role_assignments
 			WHERE template_stage_id = NEW.template_stage_id
 		LOOP
 			-- Find user with appropriate role
@@ -1295,7 +1475,7 @@ BEGIN
 				v_role_assignment.assignment_rule->>'require_same_hq' != 'true' 
 				OR raw_user_meta_data->>'hq_id' = (
 					SELECT data->>'hq_id' 
-					FROM workflow_instances 
+					FROM public.workflow_instances 
 					WHERE id = NEW.workflow_instance_id
 				)
 			)
@@ -1304,7 +1484,7 @@ BEGIN
 			
 			-- Create action if assignee found
 			IF v_assignee_id IS NOT NULL THEN
-				INSERT INTO workflow_actions (
+				INSERT INTO public.workflow_actions (
 					stage_instance_id,
 					action_type,
 					assigned_to,
@@ -1332,6 +1512,7 @@ CREATE OR REPLACE FUNCTION public.can_create_workflow_from_template(p_template_i
  RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE
 	v_min_level INTEGER;
@@ -1341,7 +1522,7 @@ DECLARE
 BEGIN
 	-- Get template permissions
 	SELECT min_role_level, allowed_roles INTO v_min_level, v_allowed_roles
-	FROM workflow_template_permissions
+	FROM public.workflow_template_permissions
 	WHERE template_id = p_template_id;
 	
 	-- If no permissions defined, require level 50 (local manager)
@@ -1350,8 +1531,8 @@ BEGIN
 	END IF;
 	
 	-- Get user's role and level
-	v_user_role := fn_get_current_role_code();
-	v_user_level := fn_get_current_role_level();
+	v_user_role := public.fn_get_current_role_code();
+	v_user_level := public.fn_get_current_role_level();
 	
 	-- Check level requirement
 	IF v_user_level < v_min_level THEN
@@ -1372,19 +1553,20 @@ CREATE OR REPLACE FUNCTION public.can_perform_workflow_action(p_action_id uuid)
  RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 DECLARE
-	v_action workflow_actions%ROWTYPE;
+	v_action public.workflow_actions%ROWTYPE;
 	v_min_level INTEGER;
 	v_allowed_roles TEXT[];
 BEGIN
 	-- Get action details
-	SELECT * INTO v_action FROM workflow_actions WHERE id = p_action_id;
+	SELECT * INTO v_action FROM public.workflow_actions WHERE id = p_action_id;
 	
 	-- User must be assigned to the action
 	IF v_action.assigned_to != auth.uid() THEN
 		-- Check if user is workflow admin
-		IF is_workflow_admin() THEN
+		IF public.is_workflow_admin() THEN
 			RETURN TRUE;
 		END IF;
 		RETURN FALSE;
@@ -1392,16 +1574,16 @@ BEGIN
 	
 	-- Get role requirements for this action type
 	SELECT min_role_level INTO v_min_level
-	FROM workflow_action_role_assignments
+	FROM public.workflow_action_role_assignments
 	WHERE template_stage_id = (
 		SELECT template_stage_id 
-		FROM workflow_stage_instances 
+		FROM public.workflow_stage_instances 
 		WHERE id = v_action.stage_instance_id
 	)
 	AND action_type = v_action.action_type;
 	
 	-- Check role level
-	IF v_min_level IS NOT NULL AND fn_get_current_role_level() < v_min_level THEN
+	IF v_min_level IS NOT NULL AND public.fn_get_current_role_level() < v_min_level THEN
 		RETURN FALSE;
 	END IF;
 	
@@ -1492,6 +1674,25 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.cleanup_expired_notifications()
+ RETURNS integer
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+	v_count INTEGER;
+BEGIN
+	DELETE FROM public.notifications
+	WHERE expires_at < NOW()
+	OR (is_archived AND archived_at < NOW() - INTERVAL '30 days');
+	
+	GET DIAGNOSTICS v_count = ROW_COUNT;
+	RETURN v_count;
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.complete_workflow_action(p_action_id uuid, p_result jsonb DEFAULT '{}'::jsonb, p_comment text DEFAULT NULL::text)
  RETURNS boolean
  LANGUAGE plpgsql
@@ -1542,6 +1743,76 @@ BEGIN
 	END IF;
 	
 	RETURN true;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.create_notification_from_template(p_template_code text, p_recipient_id uuid, p_variables jsonb DEFAULT '{}'::jsonb, p_sender_id uuid DEFAULT NULL::uuid, p_priority notification_priority DEFAULT NULL::notification_priority, p_related_entity_type text DEFAULT NULL::text, p_related_entity_id uuid DEFAULT NULL::uuid, p_action_url text DEFAULT NULL::text)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+	v_template public.notification_templates%ROWTYPE;
+	v_title TEXT;
+	v_body TEXT;
+	v_notification_id UUID;
+	v_key TEXT;
+	v_value TEXT;
+BEGIN
+	-- Get template
+	SELECT * INTO v_template
+	FROM public.notification_templates
+	WHERE code = p_template_code AND is_active = TRUE;
+	
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'Template not found: %', p_template_code;
+	END IF;
+	
+	-- Process template variables
+	v_title := v_template.title_template;
+	v_body := v_template.body_template;
+	
+	-- Replace variables in title and body
+	FOR v_key, v_value IN SELECT * FROM jsonb_each_text(p_variables)
+	LOOP
+		v_title := REPLACE(v_title, '{{' || v_key || '}}', v_value);
+		v_body := REPLACE(v_body, '{{' || v_key || '}}', v_value);
+	END LOOP;
+	
+	-- Create notification
+	INSERT INTO public.notifications (
+		type,
+		priority,
+		sender_id,
+		recipient_id,
+		title,
+		body,
+		data,
+		related_entity_type,
+		related_entity_id,
+		action_url
+	) VALUES (
+		v_template.type,
+		COALESCE(p_priority, v_template.default_priority),
+		p_sender_id,
+		p_recipient_id,
+		v_title,
+		v_body,
+		jsonb_build_object(
+			'template_code', p_template_code,
+			'variables', p_variables
+		),
+		p_related_entity_type,
+		p_related_entity_id,
+		p_action_url
+	) RETURNING id INTO v_notification_id;
+	
+	-- Create delivery records for default channels
+	INSERT INTO public.notification_deliveries (notification_id, channel)
+	SELECT v_notification_id, unnest(v_template.default_channels);
+	
+	RETURN v_notification_id;
 END;
 $function$
 ;
@@ -1612,6 +1883,31 @@ BEGIN
 	
 	RETURN v_workflow_id;
 END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.fn_can_access_agreement(p_agreement_hq_id uuid, p_agreement_user_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+SELECT 
+    CASE 
+        -- Level 80+: Full access (Konsejo and above)
+        WHEN public.fn_get_current_role_level() >= 80 THEN true
+        
+        -- Level 50-79: Only their headquarter (Local directors)
+        WHEN public.fn_get_current_role_level() >= 50 THEN 
+            p_agreement_hq_id = public.fn_get_current_hq_id()
+        
+        -- Level 21-49: Only their headquarter (Assistants)
+        WHEN public.fn_get_current_role_level() >= 21 THEN 
+            p_agreement_hq_id = public.fn_get_current_hq_id()
+            
+        -- Level 1-20: Only their own agreement
+        ELSE p_agreement_user_id = auth.uid()
+    END;
 $function$
 ;
 
@@ -1808,12 +2104,36 @@ $function$
 
 CREATE OR REPLACE FUNCTION public.get_agreement_by_role_id(role_id uuid)
  RETURNS SETOF agreement_with_role
- LANGUAGE sql
+ LANGUAGE plpgsql
  SET search_path TO ''
 AS $function$
-  SELECT awr.*
-  FROM public.agreement_with_role awr
-  WHERE awr.role->>'role_id' = role_id::text;
+BEGIN
+  RETURN QUERY
+  SELECT a.id,
+         a.user_id,
+         a.headquarter_id,
+         a.season_id,
+         a.status,
+         a.email,
+         a.document_number,
+         a.phone,
+         a.name,
+         a.last_name,
+         a.fts_name_lastname,
+         a.address,
+         a.signature_data,
+         a.volunteering_agreement,
+         a.ethical_document_agreement,
+         a.mailing_agreement,
+         a.age_verification,
+         a.created_at,
+         a.updated_at,
+         COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb) AS role
+  FROM public.agreements a
+  LEFT JOIN public.roles r ON a.role_id = r.id
+  WHERE a.role_id = role_id
+    AND public.fn_can_access_agreement(a.headquarter_id, a.user_id);
+END;
 $function$
 ;
 
@@ -1825,12 +2145,35 @@ AS $function$
 DECLARE
   v_result JSONB;
 BEGIN
-  SELECT to_jsonb(awr) INTO v_result
-  FROM public.agreement_with_role awr
-  WHERE awr.id = p_agreement_id;
+  SELECT to_jsonb(row(
+    a.id,
+    a.user_id,
+    a.headquarter_id,
+    a.season_id,
+    a.status,
+    a.email,
+    a.document_number,
+    a.phone,
+    a.name,
+    a.last_name,
+    a.fts_name_lastname,
+    a.address,
+    a.signature_data,
+    a.volunteering_agreement,
+    a.ethical_document_agreement,
+    a.mailing_agreement,
+    a.age_verification,
+    a.created_at,
+    a.updated_at,
+    COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb)
+  )) INTO v_result
+  FROM public.agreements a
+  LEFT JOIN public.roles r ON a.role_id = r.id
+  WHERE a.id = p_agreement_id
+    AND public.fn_can_access_agreement(a.headquarter_id, a.user_id);
 
   IF v_result IS NULL THEN
-    RETURN jsonb_build_object('error', 'Agreement not found');
+    RETURN jsonb_build_object('error', 'Agreement not found or access denied');
   END IF;
 
   RETURN v_result;
@@ -1840,37 +2183,105 @@ $function$
 
 CREATE OR REPLACE FUNCTION public.get_agreements_by_role(role_name text)
  RETURNS SETOF agreement_with_role
- LANGUAGE sql
+ LANGUAGE plpgsql
  SET search_path TO ''
 AS $function$
-  SELECT awr.*
-  FROM public.agreement_with_role awr
-  WHERE awr.role->>'role_name' = role_name;
+BEGIN
+  RETURN QUERY
+  SELECT a.id,
+         a.user_id,
+         a.headquarter_id,
+         a.season_id,
+         a.status,
+         a.email,
+         a.document_number,
+         a.phone,
+         a.name,
+         a.last_name,
+         a.fts_name_lastname,
+         a.address,
+         a.signature_data,
+         a.volunteering_agreement,
+         a.ethical_document_agreement,
+         a.mailing_agreement,
+         a.age_verification,
+         a.created_at,
+         a.updated_at,
+         COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb) AS role
+  FROM public.agreements a
+  LEFT JOIN public.roles r ON a.role_id = r.id
+  WHERE r.name = role_name
+    AND public.fn_can_access_agreement(a.headquarter_id, a.user_id);
+END;
 $function$
 ;
 
 CREATE OR REPLACE FUNCTION public.get_agreements_by_role_string(role_string text)
  RETURNS SETOF agreement_with_role
- LANGUAGE sql
+ LANGUAGE plpgsql
  SET search_path TO ''
 AS $function$
-  SELECT awr.*
-  FROM public.agreement_with_role awr
-  WHERE awr.role->>'role_name' ILIKE '%' || role_string || '%'
-  OR awr.role->>'role_id' IN (
-    SELECT r.id::text
-    FROM public.roles r
-    WHERE r.code ILIKE '%' || role_string || '%'
-  );
+BEGIN
+  RETURN QUERY
+  SELECT a.id,
+         a.user_id,
+         a.headquarter_id,
+         a.season_id,
+         a.status,
+         a.email,
+         a.document_number,
+         a.phone,
+         a.name,
+         a.last_name,
+         a.fts_name_lastname,
+         a.address,
+         a.signature_data,
+         a.volunteering_agreement,
+         a.ethical_document_agreement,
+         a.mailing_agreement,
+         a.age_verification,
+         a.created_at,
+         a.updated_at,
+         COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb) AS role
+  FROM public.agreements a
+  LEFT JOIN public.roles r ON a.role_id = r.id
+  WHERE (r.name ILIKE '%' || role_string || '%' OR r.code ILIKE '%' || role_string || '%')
+    AND public.fn_can_access_agreement(a.headquarter_id, a.user_id);
+END;
 $function$
 ;
 
 CREATE OR REPLACE FUNCTION public.get_agreements_with_role()
  RETURNS SETOF agreement_with_role
- LANGUAGE sql
+ LANGUAGE plpgsql
  SET search_path TO ''
 AS $function$
-  SELECT * FROM public.agreement_with_role;
+BEGIN
+  RETURN QUERY
+  SELECT a.id,
+         a.user_id,
+         a.headquarter_id,
+         a.season_id,
+         a.status,
+         a.email,
+         a.document_number,
+         a.phone,
+         a.name,
+         a.last_name,
+         a.fts_name_lastname,
+         a.address,
+         a.signature_data,
+         a.volunteering_agreement,
+         a.ethical_document_agreement,
+         a.mailing_agreement,
+         a.age_verification,
+         a.created_at,
+         a.updated_at,
+         COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb) AS role
+  FROM public.agreements a
+  LEFT JOIN public.roles r ON a.role_id = r.id
+  WHERE public.fn_can_access_agreement(a.headquarter_id, a.user_id);
+END;
 $function$
 ;
 
@@ -1884,44 +2295,68 @@ DECLARE
   v_results JSONB;
   v_data JSONB;
 BEGIN
+  -- Build the WHERE clause with access control
   SELECT COUNT(*) INTO v_total
-  FROM public.agreement_with_role awr
+  FROM public.agreements a
+  LEFT JOIN public.roles r ON a.role_id = r.id
   WHERE 
-    (p_status IS NULL OR awr.status = p_status)
-    AND (p_headquarter_id IS NULL OR awr.headquarter_id = p_headquarter_id)
-    AND (p_season_id IS NULL OR awr.season_id = p_season_id)
+    (p_status IS NULL OR a.status = p_status)
+    AND (p_headquarter_id IS NULL OR a.headquarter_id = p_headquarter_id)
+    AND (p_season_id IS NULL OR a.season_id = p_season_id)
     AND (p_search IS NULL OR 
-         awr.name ILIKE '%' || p_search || '%' OR 
-         awr.last_name ILIKE '%' || p_search || '%' OR
-         awr.email ILIKE '%' || p_search || '%' OR
-         awr.document_number ILIKE '%' || p_search || '%')
-    AND (p_role_id IS NULL OR awr.role->>'role_id' = p_role_id::text);
+         a.name ILIKE '%' || p_search || '%' OR 
+         a.last_name ILIKE '%' || p_search || '%' OR
+         a.email ILIKE '%' || p_search || '%' OR
+         a.document_number ILIKE '%' || p_search || '%')
+    AND (p_role_id IS NULL OR a.role_id = p_role_id)
+    -- Apply access control based on role level and headquarter
+    AND public.fn_can_access_agreement(a.headquarter_id, a.user_id);
 
   SELECT jsonb_agg(to_jsonb(awr)) INTO v_data
   FROM (
-    SELECT *
-    FROM public.agreement_with_role awr
+    SELECT a.id,
+           a.user_id,
+           a.headquarter_id,
+           a.season_id,
+           a.status,
+           a.email,
+           a.document_number,
+           a.phone,
+           a.name,
+           a.last_name,
+           a.fts_name_lastname,
+           a.address,
+           a.signature_data,
+           a.volunteering_agreement,
+           a.ethical_document_agreement,
+           a.mailing_agreement,
+           a.age_verification,
+           a.created_at,
+           a.updated_at,
+           COALESCE(jsonb_build_object('role_id', r.id, 'role_name', r.name, 'role_description', r.description, 'role_code', r.code, 'role_level', r.level), '{}'::jsonb) AS role
+    FROM public.agreements a
+    LEFT JOIN public.roles r ON a.role_id = r.id
     WHERE 
-      (p_status IS NULL OR awr.status = p_status)
-      AND (p_headquarter_id IS NULL OR awr.headquarter_id = p_headquarter_id)
-      AND (p_season_id IS NULL OR awr.season_id = p_season_id)
+      (p_status IS NULL OR a.status = p_status)
+      AND (p_headquarter_id IS NULL OR a.headquarter_id = p_headquarter_id)
+      AND (p_season_id IS NULL OR a.season_id = p_season_id)
       AND (p_search IS NULL OR 
-           awr.name ILIKE '%' || p_search || '%' OR 
-           awr.last_name ILIKE '%' || p_search || '%' OR
-           awr.email ILIKE '%' || p_search || '%' OR
-           awr.document_number ILIKE '%' || p_search || '%')
-      AND (p_role_id IS NULL OR awr.role->>'role_id' = p_role_id::text)
-    ORDER BY awr.created_at DESC
+           a.name ILIKE '%' || p_search || '%' OR 
+           a.last_name ILIKE '%' || p_search || '%' OR
+           a.email ILIKE '%' || p_search || '%' OR
+           a.document_number ILIKE '%' || p_search || '%')
+      AND (p_role_id IS NULL OR a.role_id = p_role_id)
+      -- Apply access control based on role level and headquarter
+      AND public.fn_can_access_agreement(a.headquarter_id, a.user_id)
+    ORDER BY a.created_at DESC
     LIMIT p_limit
     OFFSET p_offset
   ) awr;
 
-  -- Handle case when no results are found
   IF v_data IS NULL THEN
     v_data := '[]'::jsonb;
   END IF;
 
-  -- Construct the final result object
   v_results := jsonb_build_object(
     'data', v_data,
     'pagination', jsonb_build_object(
@@ -2569,6 +3004,51 @@ BEGIN
              );
 
     RETURN stats;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_headquarter_agreements_with_role(p_headquarter_id uuid)
+ RETURNS TABLE(id uuid, user_id uuid, headquarter_id uuid, role_id uuid, season_id uuid, name text, last_name text, email text, phone text, document_number text, status text, created_at timestamp with time zone, updated_at timestamp with time zone, role json, user_email text, headquarter_name text, season_name text, season_status text)
+ LANGUAGE plpgsql
+ STABLE
+ SET search_path TO ''
+AS $function$
+BEGIN
+  RETURN QUERY
+  SELECT a.id,
+         a.user_id,
+         a.headquarter_id,
+         a.role_id,
+         a.season_id,
+         a.name,
+         a.last_name,
+         a.email,
+         a.phone,
+         a.document_number,
+         a.status,
+         a.created_at,
+         a.updated_at,
+         json_build_object(
+                 'id', r.id,
+                 'code', r.code,
+                 'name', r.name,
+                 'description', r.description,
+                 'status', r.status,
+                 'level', r.level
+             ) as role,
+         au.email as user_email,
+         h.name as headquarter_name,
+         s.name as season_name,
+         s.status as season_status
+  FROM public.agreements a
+           LEFT JOIN public.roles r ON a.role_id = r.id
+           LEFT JOIN auth.users au ON a.user_id = au.id
+           LEFT JOIN public.headquarters h ON a.headquarter_id = h.id
+           LEFT JOIN public.seasons s ON a.season_id = s.id
+  WHERE a.headquarter_id = p_headquarter_id
+    AND public.fn_can_access_agreement(a.headquarter_id, a.user_id)
+  ORDER BY a.created_at DESC;
 END;
 $function$
 ;
@@ -3301,6 +3781,21 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.get_unread_notification_count(p_user_id uuid DEFAULT NULL::uuid)
+ RETURNS bigint
+ LANGUAGE sql
+ SET search_path TO ''
+AS $function$
+	SELECT COUNT(*)
+	FROM public.notifications
+	WHERE 
+		recipient_id = COALESCE(p_user_id, auth.uid())
+		AND NOT is_read 
+		AND NOT is_archived
+		AND (expires_at IS NULL OR expires_at > NOW());
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.get_user_dashboard_stats(target_user_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -3623,6 +4118,56 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.get_user_notifications(p_limit integer DEFAULT 20, p_offset integer DEFAULT 0, p_type notification_type DEFAULT NULL::notification_type, p_priority notification_priority DEFAULT NULL::notification_priority, p_is_read boolean DEFAULT NULL::boolean, p_category text DEFAULT NULL::text)
+ RETURNS TABLE(id uuid, type notification_type, priority notification_priority, sender_id uuid, sender_name text, title text, body text, data jsonb, is_read boolean, read_at timestamp with time zone, created_at timestamp with time zone, action_url text, total_count bigint)
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+	RETURN QUERY
+	WITH filtered_notifications AS (
+		SELECT 
+			n.*,
+			COUNT(*) OVER() AS total_count
+		FROM public.notifications n
+		WHERE 
+			n.recipient_id = auth.uid()
+			AND NOT n.is_archived
+			AND (n.expires_at IS NULL OR n.expires_at > NOW())
+			AND (p_type IS NULL OR n.type = p_type)
+			AND (p_priority IS NULL OR n.priority = p_priority)
+			AND (p_is_read IS NULL OR n.is_read = p_is_read)
+			AND (p_category IS NULL OR n.category = p_category)
+		ORDER BY n.created_at DESC
+		LIMIT p_limit
+		OFFSET p_offset
+	)
+	SELECT 
+		fn.id,
+		fn.type,
+		fn.priority,
+		fn.sender_id,
+		CASE 
+			WHEN fn.sender_type = 'system' THEN 'System'
+			WHEN u.id IS NOT NULL THEN 
+				COALESCE(u.raw_user_meta_data->>'first_name', '') || ' ' || 
+				COALESCE(u.raw_user_meta_data->>'last_name', '')
+			ELSE 'Unknown'
+		END AS sender_name,
+		fn.title,
+		fn.body,
+		fn.data,
+		fn.is_read,
+		fn.read_at,
+		fn.created_at,
+		fn.action_url,
+		fn.total_count
+	FROM filtered_notifications fn
+	LEFT JOIN auth.users u ON fn.sender_id = u.id;
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.get_workflow_status(p_workflow_id uuid)
  RETURNS TABLE(workflow_id uuid, template_name text, status text, current_stage text, total_stages integer, completed_stages integer, total_actions integer, completed_actions integer, pending_actions integer, overdue_actions integer)
  LANGUAGE plpgsql
@@ -3656,10 +4201,11 @@ CREATE OR REPLACE FUNCTION public.is_workflow_admin()
  RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 BEGIN
 	-- Konsejo members (80+) and above can administer workflows
-	RETURN fn_is_konsejo_member_or_higher();
+	RETURN public.fn_is_konsejo_member_or_higher();
 END;
 $function$
 ;
@@ -3668,15 +4214,325 @@ CREATE OR REPLACE FUNCTION public.is_workflow_participant(p_workflow_id uuid)
  RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO ''
 AS $function$
 BEGIN
 	RETURN EXISTS (
 		SELECT 1 
-		FROM workflow_actions wa
-		JOIN workflow_stage_instances wsi ON wa.stage_instance_id = wsi.id
+		FROM public.workflow_actions wa
+		JOIN public.workflow_stage_instances wsi ON wa.stage_instance_id = wsi.id
 		WHERE wsi.workflow_instance_id = p_workflow_id
 		AND wa.assigned_to = auth.uid()
 	);
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.mark_notifications_read(p_notification_ids uuid[])
+ RETURNS integer
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+	v_count INTEGER;
+BEGIN
+	UPDATE public.notifications
+	SET 
+		is_read = TRUE,
+		read_at = NOW()
+	WHERE 
+		id = ANY(p_notification_ids)
+		AND recipient_id = auth.uid()
+		AND NOT is_read;
+	
+	GET DIAGNOSTICS v_count = ROW_COUNT;
+	RETURN v_count;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.notify_user_created()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+	IF NEW.status = 'active' AND OLD.status = 'prospect' AND NEW.user_id IS NOT NULL THEN
+		-- Welcome notification for new user
+		INSERT INTO public.notifications (
+			type,
+			priority,
+			sender_type,
+			recipient_id,
+			title,
+			body,
+			data,
+			related_entity_type,
+			related_entity_id
+		) VALUES (
+			'system',
+			'high',
+			'system',
+			NEW.user_id,
+			'¡Bienvenido a la Academia!',
+			'Tu cuenta ha sido activada exitosamente. Ahora puedes acceder a todos los recursos de la plataforma.',
+			jsonb_build_object(
+				'agreement_id', NEW.id,
+				'headquarter_id', NEW.headquarter_id,
+				'season_id', NEW.season_id
+			),
+			'agreement',
+			NEW.id
+		);
+		
+		-- Notify local manager about new user
+		INSERT INTO public.notifications (
+			type,
+			priority,
+			sender_type,
+			recipient_id,
+			title,
+			body,
+			data,
+			related_entity_type,
+			related_entity_id
+		)
+		SELECT 
+			'action_required',
+			'medium',
+			'system',
+			u.id,
+			'Nuevo usuario activado',
+			'Se ha activado un nuevo usuario en tu sede: ' || NEW.name || ' ' || NEW.last_name,
+			jsonb_build_object(
+				'agreement_id', NEW.id,
+				'user_name', NEW.name || ' ' || NEW.last_name,
+				'user_email', NEW.email
+			),
+			'agreement',
+			NEW.id
+		FROM auth.users u
+		WHERE 
+			(u.raw_user_meta_data->>'hq_id')::UUID = NEW.headquarter_id
+			AND (u.raw_user_meta_data->>'role_level')::INTEGER >= 50;
+	END IF;
+	
+	RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.notify_workflow_action_assigned()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+	v_workflow_data RECORD;
+BEGIN
+	IF NEW.assigned_to IS NOT NULL AND (OLD.assigned_to IS NULL OR OLD.assigned_to != NEW.assigned_to) THEN
+		-- Get workflow information
+		SELECT 
+			wi.name AS workflow_name,
+			wts.name AS stage_name,
+			wi.initiated_by
+		INTO v_workflow_data
+		FROM public.workflow_stage_instances wsi
+		JOIN public.workflow_instances wi ON wsi.workflow_instance_id = wi.id
+		JOIN public.workflow_template_stages wts ON wsi.template_stage_id = wts.id
+		WHERE wsi.id = NEW.stage_instance_id;
+		
+		-- Create notification for assignee
+		INSERT INTO public.notifications (
+			type,
+			priority,
+			sender_id,
+			sender_type,
+			recipient_id,
+			title,
+			body,
+			data,
+			related_entity_type,
+			related_entity_id,
+			action_url
+		) VALUES (
+			'action_required',
+			CASE NEW.priority
+				WHEN 'urgent' THEN 'urgent'
+				WHEN 'high' THEN 'high'
+				ELSE 'medium'
+			END,
+			v_workflow_data.initiated_by,
+			'workflow',
+			NEW.assigned_to,
+			'Nueva acción asignada: ' || NEW.action_type,
+			'Se te ha asignado una acción en el flujo "' || v_workflow_data.workflow_name || 
+			'" - Etapa: ' || v_workflow_data.stage_name,
+			jsonb_build_object(
+				'action_id', NEW.id,
+				'action_type', NEW.action_type,
+				'workflow_name', v_workflow_data.workflow_name,
+				'stage_name', v_workflow_data.stage_name,
+				'due_date', NEW.due_date
+			),
+			'workflow_action',
+			NEW.id,
+			'/workflows/actions/' || NEW.id
+		);
+	END IF;
+	
+	RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.notify_workflow_action_completed()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+	v_workflow_data RECORD;
+	v_next_user UUID;
+BEGIN
+	IF NEW.status = 'completed' AND OLD.status != 'completed' THEN
+		-- Get workflow information
+		SELECT 
+			wi.name AS workflow_name,
+			wi.initiated_by,
+			wsi.id AS stage_instance_id
+		INTO v_workflow_data
+		FROM public.workflow_stage_instances wsi
+		JOIN public.workflow_instances wi ON wsi.workflow_instance_id = wi.id
+		WHERE wsi.id = NEW.stage_instance_id;
+		
+		-- Notify workflow initiator
+		IF v_workflow_data.initiated_by != NEW.performed_by THEN
+			INSERT INTO public.notifications (
+				type,
+				priority,
+				sender_id,
+				sender_type,
+				recipient_id,
+				title,
+				body,
+				data,
+				related_entity_type,
+				related_entity_id
+			) VALUES (
+				'system',
+				'medium',
+				NEW.performed_by,
+				'workflow',
+				v_workflow_data.initiated_by,
+				'Acción completada en tu flujo',
+				'La acción "' || NEW.action_type || '" ha sido completada en el flujo "' || 
+				v_workflow_data.workflow_name || '"',
+				jsonb_build_object(
+					'action_id', NEW.id,
+					'action_type', NEW.action_type,
+					'workflow_name', v_workflow_data.workflow_name,
+					'completed_by', NEW.performed_by
+				),
+				'workflow_action',
+				NEW.id
+			);
+		END IF;
+		
+		-- Check if there are pending actions in the same stage for notification
+		SELECT assigned_to INTO v_next_user
+		FROM public.workflow_actions
+		WHERE 
+			stage_instance_id = NEW.stage_instance_id
+			AND status = 'pending'
+			AND id != NEW.id
+		LIMIT 1;
+		
+		IF v_next_user IS NOT NULL THEN
+			INSERT INTO public.notifications (
+				type,
+				priority,
+				sender_type,
+				recipient_id,
+				title,
+				body,
+				data,
+				related_entity_type,
+				related_entity_id
+			) VALUES (
+				'reminder',
+				'medium',
+				'system',
+				v_next_user,
+				'Recordatorio: Tienes acciones pendientes',
+				'Un compañero ha completado su parte. Ahora es tu turno en el flujo "' || 
+				v_workflow_data.workflow_name || '"',
+				jsonb_build_object(
+					'workflow_name', v_workflow_data.workflow_name,
+					'stage_instance_id', v_workflow_data.stage_instance_id
+				),
+				'workflow_action',
+				NEW.stage_instance_id
+			);
+		END IF;
+	END IF;
+	
+	RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.notify_workshop_reminder()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+BEGIN
+	-- When a workshop is scheduled, create reminder notifications
+	IF NEW.scheduled_date IS NOT NULL AND 
+	   (OLD.scheduled_date IS NULL OR OLD.scheduled_date != NEW.scheduled_date) THEN
+		
+		-- Notification for facilitators (1 day before)
+		INSERT INTO public.notifications (
+			type,
+			priority,
+			sender_type,
+			recipient_id,
+			title,
+			body,
+			data,
+			related_entity_type,
+			related_entity_id,
+			expires_at
+		)
+		SELECT 
+			'reminder',
+			'high',
+			'system',
+			fwm.user_id,
+			'Recordatorio: Taller mañana',
+			'Tienes un taller programado para mañana: ' || NEW.name,
+			jsonb_build_object(
+				'workshop_id', NEW.id,
+				'workshop_name', NEW.name,
+				'scheduled_date', NEW.scheduled_date,
+				'location', NEW.location
+			),
+			'workshop',
+			NEW.id,
+			NEW.scheduled_date::TIMESTAMPTZ
+		FROM public.facilitator_workshop_map fwm
+		WHERE fwm.workshop_id = NEW.id;
+		
+		-- Schedule these notifications to be sent 1 day before
+		-- This would be handled by a cron job or scheduled function
+	END IF;
+	
+	RETURN NEW;
 END;
 $function$
 ;
@@ -3729,6 +4585,79 @@ BEGIN
 	);
 	
 	RETURN true;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.search_users_vector(p_query text, p_role_code text DEFAULT NULL::text, p_min_role_level integer DEFAULT NULL::integer, p_limit integer DEFAULT 10, p_offset integer DEFAULT 0)
+ RETURNS TABLE(user_id uuid, full_name text, email text, role_code text, role_name text, role_level integer, headquarter_name text, similarity real)
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+BEGIN
+	RETURN QUERY
+	SELECT 
+		usi.user_id,
+		usi.full_name,
+		usi.email,
+		usi.role_code,
+		usi.role_name,
+		usi.role_level,
+		usi.headquarter_name,
+		ts_rank(usi.search_vector, plainto_tsquery('spanish', p_query)) AS similarity
+	FROM public.user_search_index usi
+	WHERE 
+		usi.is_active = TRUE
+		AND (p_role_code IS NULL OR usi.role_code = p_role_code)
+		AND (p_min_role_level IS NULL OR usi.role_level >= p_min_role_level)
+		AND (p_query IS NULL OR usi.search_vector @@ plainto_tsquery('spanish', p_query))
+	ORDER BY similarity DESC, usi.full_name
+	LIMIT p_limit
+	OFFSET p_offset;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.send_role_based_notification(p_role_codes text[], p_title text, p_body text, p_min_role_level integer DEFAULT NULL::integer, p_type notification_type DEFAULT 'role_based'::notification_type, p_priority notification_priority DEFAULT 'medium'::notification_priority, p_data jsonb DEFAULT '{}'::jsonb)
+ RETURNS integer
+ LANGUAGE plpgsql
+ SET search_path TO ''
+AS $function$
+DECLARE
+	v_count INTEGER := 0;
+BEGIN
+	-- Insert notifications for all matching users
+	INSERT INTO public.notifications (
+		type,
+		priority,
+		sender_id,
+		sender_type,
+		recipient_id,
+		recipient_role_code,
+		recipient_role_level,
+		title,
+		body,
+		data
+	)
+	SELECT 
+		p_type,
+		p_priority,
+		auth.uid(),
+		'system',
+		u.id,
+		(u.raw_user_meta_data->>'role')::TEXT,
+		(u.raw_user_meta_data->>'role_level')::INTEGER,
+		p_title,
+		p_body,
+		p_data
+	FROM auth.users u
+	WHERE 
+		(u.raw_user_meta_data->>'role')::TEXT = ANY(p_role_codes)
+		AND (p_min_role_level IS NULL OR (u.raw_user_meta_data->>'role_level')::INTEGER >= p_min_role_level)
+		AND u.deleted_at IS NULL;
+	
+	GET DIAGNOSTICS v_count = ROW_COUNT;
+	RETURN v_count;
 END;
 $function$
 ;
@@ -3903,6 +4832,75 @@ BEGIN
     NEW.fts_name_lastname :=
             to_tsvector('simple', coalesce(NEW.name, '') || ' ' || coalesce(NEW.last_name, ''));
     RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.update_user_search_index()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+	v_agreement_data RECORD;
+BEGIN
+	-- For user updates, refresh the search index
+	IF TG_OP = 'UPDATE' OR TG_OP = 'INSERT' THEN
+		-- Get user's agreement data
+		SELECT 
+			a.name || ' ' || a.last_name AS full_name,
+			a.email,
+			r.code AS role_code,
+			r.name AS role_name,
+			r.level AS role_level,
+			h.name AS headquarter_name
+		INTO v_agreement_data
+		FROM public.agreements a
+		JOIN public.roles r ON a.role_id = r.id
+		LEFT JOIN public.headquarters h ON a.headquarter_id = h.id
+		WHERE a.user_id = NEW.id
+		AND a.status = 'active'
+		LIMIT 1;
+		
+		IF FOUND THEN
+			INSERT INTO public.user_search_index (
+				user_id,
+				full_name,
+				email,
+				role_code,
+				role_name,
+				role_level,
+				headquarter_name,
+				is_active
+			) VALUES (
+				NEW.id,
+				v_agreement_data.full_name,
+				v_agreement_data.email,
+				v_agreement_data.role_code,
+				v_agreement_data.role_name,
+				v_agreement_data.role_level,
+				v_agreement_data.headquarter_name,
+				NEW.deleted_at IS NULL
+			)
+			ON CONFLICT (user_id) DO UPDATE SET
+				full_name = EXCLUDED.full_name,
+				email = EXCLUDED.email,
+				role_code = EXCLUDED.role_code,
+				role_name = EXCLUDED.role_name,
+				role_level = EXCLUDED.role_level,
+				headquarter_name = EXCLUDED.headquarter_name,
+				is_active = EXCLUDED.is_active,
+				updated_at = NOW();
+		END IF;
+	ELSIF TG_OP = 'DELETE' THEN
+		-- Mark as inactive instead of deleting
+		UPDATE public.user_search_index
+		SET is_active = FALSE
+		WHERE user_id = OLD.id;
+	END IF;
+	
+	RETURN NEW;
 END;
 $function$
 ;
@@ -4327,6 +5325,174 @@ grant truncate on table "public"."master_workshop_types" to "service_role";
 
 grant update on table "public"."master_workshop_types" to "service_role";
 
+grant delete on table "public"."notification_deliveries" to "anon";
+
+grant insert on table "public"."notification_deliveries" to "anon";
+
+grant references on table "public"."notification_deliveries" to "anon";
+
+grant select on table "public"."notification_deliveries" to "anon";
+
+grant trigger on table "public"."notification_deliveries" to "anon";
+
+grant truncate on table "public"."notification_deliveries" to "anon";
+
+grant update on table "public"."notification_deliveries" to "anon";
+
+grant delete on table "public"."notification_deliveries" to "authenticated";
+
+grant insert on table "public"."notification_deliveries" to "authenticated";
+
+grant references on table "public"."notification_deliveries" to "authenticated";
+
+grant select on table "public"."notification_deliveries" to "authenticated";
+
+grant trigger on table "public"."notification_deliveries" to "authenticated";
+
+grant truncate on table "public"."notification_deliveries" to "authenticated";
+
+grant update on table "public"."notification_deliveries" to "authenticated";
+
+grant delete on table "public"."notification_deliveries" to "service_role";
+
+grant insert on table "public"."notification_deliveries" to "service_role";
+
+grant references on table "public"."notification_deliveries" to "service_role";
+
+grant select on table "public"."notification_deliveries" to "service_role";
+
+grant trigger on table "public"."notification_deliveries" to "service_role";
+
+grant truncate on table "public"."notification_deliveries" to "service_role";
+
+grant update on table "public"."notification_deliveries" to "service_role";
+
+grant delete on table "public"."notification_preferences" to "anon";
+
+grant insert on table "public"."notification_preferences" to "anon";
+
+grant references on table "public"."notification_preferences" to "anon";
+
+grant select on table "public"."notification_preferences" to "anon";
+
+grant trigger on table "public"."notification_preferences" to "anon";
+
+grant truncate on table "public"."notification_preferences" to "anon";
+
+grant update on table "public"."notification_preferences" to "anon";
+
+grant delete on table "public"."notification_preferences" to "authenticated";
+
+grant insert on table "public"."notification_preferences" to "authenticated";
+
+grant references on table "public"."notification_preferences" to "authenticated";
+
+grant select on table "public"."notification_preferences" to "authenticated";
+
+grant trigger on table "public"."notification_preferences" to "authenticated";
+
+grant truncate on table "public"."notification_preferences" to "authenticated";
+
+grant update on table "public"."notification_preferences" to "authenticated";
+
+grant delete on table "public"."notification_preferences" to "service_role";
+
+grant insert on table "public"."notification_preferences" to "service_role";
+
+grant references on table "public"."notification_preferences" to "service_role";
+
+grant select on table "public"."notification_preferences" to "service_role";
+
+grant trigger on table "public"."notification_preferences" to "service_role";
+
+grant truncate on table "public"."notification_preferences" to "service_role";
+
+grant update on table "public"."notification_preferences" to "service_role";
+
+grant delete on table "public"."notification_templates" to "anon";
+
+grant insert on table "public"."notification_templates" to "anon";
+
+grant references on table "public"."notification_templates" to "anon";
+
+grant select on table "public"."notification_templates" to "anon";
+
+grant trigger on table "public"."notification_templates" to "anon";
+
+grant truncate on table "public"."notification_templates" to "anon";
+
+grant update on table "public"."notification_templates" to "anon";
+
+grant delete on table "public"."notification_templates" to "authenticated";
+
+grant insert on table "public"."notification_templates" to "authenticated";
+
+grant references on table "public"."notification_templates" to "authenticated";
+
+grant select on table "public"."notification_templates" to "authenticated";
+
+grant trigger on table "public"."notification_templates" to "authenticated";
+
+grant truncate on table "public"."notification_templates" to "authenticated";
+
+grant update on table "public"."notification_templates" to "authenticated";
+
+grant delete on table "public"."notification_templates" to "service_role";
+
+grant insert on table "public"."notification_templates" to "service_role";
+
+grant references on table "public"."notification_templates" to "service_role";
+
+grant select on table "public"."notification_templates" to "service_role";
+
+grant trigger on table "public"."notification_templates" to "service_role";
+
+grant truncate on table "public"."notification_templates" to "service_role";
+
+grant update on table "public"."notification_templates" to "service_role";
+
+grant delete on table "public"."notifications" to "anon";
+
+grant insert on table "public"."notifications" to "anon";
+
+grant references on table "public"."notifications" to "anon";
+
+grant select on table "public"."notifications" to "anon";
+
+grant trigger on table "public"."notifications" to "anon";
+
+grant truncate on table "public"."notifications" to "anon";
+
+grant update on table "public"."notifications" to "anon";
+
+grant delete on table "public"."notifications" to "authenticated";
+
+grant insert on table "public"."notifications" to "authenticated";
+
+grant references on table "public"."notifications" to "authenticated";
+
+grant select on table "public"."notifications" to "authenticated";
+
+grant trigger on table "public"."notifications" to "authenticated";
+
+grant truncate on table "public"."notifications" to "authenticated";
+
+grant update on table "public"."notifications" to "authenticated";
+
+grant delete on table "public"."notifications" to "service_role";
+
+grant insert on table "public"."notifications" to "service_role";
+
+grant references on table "public"."notifications" to "service_role";
+
+grant select on table "public"."notifications" to "service_role";
+
+grant trigger on table "public"."notifications" to "service_role";
+
+grant truncate on table "public"."notifications" to "service_role";
+
+grant update on table "public"."notifications" to "service_role";
+
 grant delete on table "public"."processes" to "anon";
 
 grant insert on table "public"."processes" to "anon";
@@ -4620,6 +5786,48 @@ grant trigger on table "public"."students" to "service_role";
 grant truncate on table "public"."students" to "service_role";
 
 grant update on table "public"."students" to "service_role";
+
+grant delete on table "public"."user_search_index" to "anon";
+
+grant insert on table "public"."user_search_index" to "anon";
+
+grant references on table "public"."user_search_index" to "anon";
+
+grant select on table "public"."user_search_index" to "anon";
+
+grant trigger on table "public"."user_search_index" to "anon";
+
+grant truncate on table "public"."user_search_index" to "anon";
+
+grant update on table "public"."user_search_index" to "anon";
+
+grant delete on table "public"."user_search_index" to "authenticated";
+
+grant insert on table "public"."user_search_index" to "authenticated";
+
+grant references on table "public"."user_search_index" to "authenticated";
+
+grant select on table "public"."user_search_index" to "authenticated";
+
+grant trigger on table "public"."user_search_index" to "authenticated";
+
+grant truncate on table "public"."user_search_index" to "authenticated";
+
+grant update on table "public"."user_search_index" to "authenticated";
+
+grant delete on table "public"."user_search_index" to "service_role";
+
+grant insert on table "public"."user_search_index" to "service_role";
+
+grant references on table "public"."user_search_index" to "service_role";
+
+grant select on table "public"."user_search_index" to "service_role";
+
+grant trigger on table "public"."user_search_index" to "service_role";
+
+grant truncate on table "public"."user_search_index" to "service_role";
+
+grant update on table "public"."user_search_index" to "service_role";
 
 grant delete on table "public"."workflow_action_history" to "anon";
 
@@ -5062,7 +6270,7 @@ on "public"."agreements"
 as permissive
 for select
 to public
-using (((user_id = ( SELECT auth.uid() AS uid)) OR fn_is_general_director_or_higher() OR (fn_is_local_manager_or_higher() AND fn_is_current_user_hq_equal_to(headquarter_id))));
+using (((user_id = ( SELECT auth.uid() AS uid)) OR fn_is_local_manager_or_higher()));
 
 
 create policy "agreements_update_permissions"
@@ -5375,6 +6583,57 @@ using (fn_is_general_director_or_higher())
 with check (fn_is_general_director_or_higher());
 
 
+create policy "Users can manage their preferences"
+on "public"."notification_preferences"
+as permissive
+for all
+to authenticated
+using ((user_id = auth.uid()))
+with check ((user_id = auth.uid()));
+
+
+create policy "Admins can manage notification templates"
+on "public"."notification_templates"
+as permissive
+for all
+to authenticated
+using (fn_is_konsejo_member_or_higher())
+with check (fn_is_konsejo_member_or_higher());
+
+
+create policy "Users can view active templates"
+on "public"."notification_templates"
+as permissive
+for select
+to authenticated
+using ((is_active = true));
+
+
+create policy "System can create notifications"
+on "public"."notifications"
+as permissive
+for insert
+to authenticated
+with check ((((type = 'direct_message'::notification_type) AND (sender_id = auth.uid())) OR (fn_get_current_role_level() >= 80)));
+
+
+create policy "Users can update their own notifications"
+on "public"."notifications"
+as permissive
+for update
+to authenticated
+using ((recipient_id = auth.uid()))
+with check ((recipient_id = auth.uid()));
+
+
+create policy "Users can view their own notifications"
+on "public"."notifications"
+as permissive
+for select
+to authenticated
+using ((recipient_id = auth.uid()));
+
+
 create policy "Allow authenticated users to view processes"
 on "public"."processes"
 as permissive
@@ -5609,6 +6868,14 @@ using ((fn_get_current_role_level() >= 40))
 with check ((fn_get_current_role_level() >= 40));
 
 
+create policy "Authenticated users can search users"
+on "public"."user_search_index"
+as permissive
+for select
+to authenticated
+using ((is_active = true));
+
+
 create policy "System can insert history records"
 on "public"."workflow_action_history"
 as permissive
@@ -5837,6 +7104,10 @@ CREATE TRIGGER handle_fts_name_lastname_update BEFORE INSERT OR UPDATE OF name, 
 
 CREATE TRIGGER handle_updated_at_agreements BEFORE UPDATE ON public.agreements FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
 
+CREATE TRIGGER notify_on_user_creation AFTER UPDATE ON public.agreements FOR EACH ROW EXECUTE FUNCTION notify_user_created();
+
+CREATE TRIGGER update_search_index_on_agreement_change AFTER INSERT OR UPDATE ON public.agreements FOR EACH ROW WHEN (((new.user_id IS NOT NULL) AND (new.status = 'active'::text))) EXECUTE FUNCTION update_user_search_index();
+
 CREATE TRIGGER audit_collaborators AFTER INSERT OR DELETE OR UPDATE ON public.collaborators FOR EACH ROW EXECUTE FUNCTION trg_audit();
 
 CREATE TRIGGER ensure_companion_student_hq_consistency BEFORE INSERT OR UPDATE ON public.companion_student_map FOR EACH ROW EXECUTE FUNCTION check_companion_student_hq_consistency();
@@ -5861,6 +7132,12 @@ CREATE TRIGGER handle_updated_at_headquarters BEFORE UPDATE ON public.headquarte
 
 CREATE TRIGGER handle_updated_at_master_workshop_types BEFORE UPDATE ON public.master_workshop_types FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
 
+CREATE TRIGGER handle_updated_at_notification_preferences BEFORE UPDATE ON public.notification_preferences FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
+
+CREATE TRIGGER handle_updated_at_notification_templates BEFORE UPDATE ON public.notification_templates FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
+
+CREATE TRIGGER handle_updated_at_notifications BEFORE UPDATE ON public.notifications FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
+
 CREATE TRIGGER handle_updated_at_processes BEFORE UPDATE ON public.processes FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
 
 CREATE TRIGGER handle_updated_at_roles BEFORE UPDATE ON public.roles FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
@@ -5868,6 +7145,8 @@ CREATE TRIGGER handle_updated_at_roles BEFORE UPDATE ON public.roles FOR EACH RO
 CREATE TRIGGER audit_scheduled_workshops AFTER INSERT OR DELETE OR UPDATE ON public.scheduled_workshops FOR EACH ROW EXECUTE FUNCTION trg_audit();
 
 CREATE TRIGGER handle_updated_at_scheduled_workshops BEFORE UPDATE ON public.scheduled_workshops FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
+
+CREATE TRIGGER notify_on_workshop_scheduling AFTER UPDATE ON public.scheduled_workshops FOR EACH ROW EXECUTE FUNCTION notify_workshop_reminder();
 
 CREATE TRIGGER validate_facilitator_before_insert_update BEFORE INSERT OR UPDATE ON public.scheduled_workshops FOR EACH ROW EXECUTE FUNCTION trigger_validate_workshop_facilitator();
 
@@ -5879,11 +7158,17 @@ CREATE TRIGGER handle_updated_at_student_attendance BEFORE UPDATE ON public.stud
 
 CREATE TRIGGER audit_students AFTER INSERT OR DELETE OR UPDATE ON public.students FOR EACH ROW EXECUTE FUNCTION trg_audit();
 
+CREATE TRIGGER handle_updated_at_user_search_index BEFORE UPDATE ON public.user_search_index FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
+
 CREATE TRIGGER handle_updated_at_workflow_action_role_assignments BEFORE UPDATE ON public.workflow_action_role_assignments FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
 
 CREATE TRIGGER audit_workflow_actions AFTER INSERT OR DELETE OR UPDATE ON public.workflow_actions FOR EACH ROW EXECUTE FUNCTION audit_workflow_action_change();
 
 CREATE TRIGGER handle_updated_at_workflow_actions BEFORE UPDATE ON public.workflow_actions FOR EACH ROW EXECUTE FUNCTION moddatetime('updated_at');
+
+CREATE TRIGGER notify_on_workflow_action_assignment AFTER INSERT OR UPDATE ON public.workflow_actions FOR EACH ROW EXECUTE FUNCTION notify_workflow_action_assigned();
+
+CREATE TRIGGER notify_on_workflow_action_completion AFTER UPDATE ON public.workflow_actions FOR EACH ROW EXECUTE FUNCTION notify_workflow_action_completed();
 
 CREATE TRIGGER track_action_completion_state BEFORE UPDATE ON public.workflow_actions FOR EACH ROW EXECUTE FUNCTION track_action_completion();
 

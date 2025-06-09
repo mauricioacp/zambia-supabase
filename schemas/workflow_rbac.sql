@@ -27,7 +27,11 @@ CREATE TABLE IF NOT EXISTS workflow_action_role_assignments (
 
 -- Function to check if user can create workflow from template
 CREATE OR REPLACE FUNCTION can_create_workflow_from_template(p_template_id UUID)
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
 DECLARE
 	v_min_level INTEGER;
 	v_allowed_roles TEXT[];
@@ -36,7 +40,7 @@ DECLARE
 BEGIN
 	-- Get template permissions
 	SELECT min_role_level, allowed_roles INTO v_min_level, v_allowed_roles
-	FROM workflow_template_permissions
+	FROM public.workflow_template_permissions
 	WHERE template_id = p_template_id;
 	
 	-- If no permissions defined, require level 50 (local manager)
@@ -45,8 +49,8 @@ BEGIN
 	END IF;
 	
 	-- Get user's role and level
-	v_user_role := fn_get_current_role_code();
-	v_user_level := fn_get_current_role_level();
+	v_user_role := public.fn_get_current_role_code();
+	v_user_level := public.fn_get_current_role_level();
 	
 	-- Check level requirement
 	IF v_user_level < v_min_level THEN
@@ -60,20 +64,24 @@ BEGIN
 	
 	RETURN TRUE;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Function to auto-assign actions based on role
 CREATE OR REPLACE FUNCTION auto_assign_workflow_actions()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
 DECLARE
-	v_role_assignment workflow_action_role_assignments%ROWTYPE;
+	v_role_assignment public.workflow_action_role_assignments%ROWTYPE;
 	v_assignee_id UUID;
 BEGIN
 	-- Only process when stage becomes active
 	IF NEW.status = 'active' AND OLD.status != 'active' THEN
 		-- Get role assignments for this stage
 		FOR v_role_assignment IN 
-			SELECT * FROM workflow_action_role_assignments
+			SELECT * FROM public.workflow_action_role_assignments
 			WHERE template_stage_id = NEW.template_stage_id
 		LOOP
 			-- Find user with appropriate role
@@ -88,7 +96,7 @@ BEGIN
 				v_role_assignment.assignment_rule->>'require_same_hq' != 'true' 
 				OR raw_user_meta_data->>'hq_id' = (
 					SELECT data->>'hq_id' 
-					FROM workflow_instances 
+					FROM public.workflow_instances 
 					WHERE id = NEW.workflow_instance_id
 				)
 			)
@@ -97,7 +105,7 @@ BEGIN
 			
 			-- Create action if assignee found
 			IF v_assignee_id IS NOT NULL THEN
-				INSERT INTO workflow_actions (
+				INSERT INTO public.workflow_actions (
 					stage_instance_id,
 					action_type,
 					assigned_to,
@@ -118,23 +126,27 @@ BEGIN
 	
 	RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Function to check if user can perform action based on role
 CREATE OR REPLACE FUNCTION can_perform_workflow_action(p_action_id UUID)
-RETURNS BOOLEAN AS $$
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
 DECLARE
-	v_action workflow_actions%ROWTYPE;
+	v_action public.workflow_actions%ROWTYPE;
 	v_min_level INTEGER;
 	v_allowed_roles TEXT[];
 BEGIN
 	-- Get action details
-	SELECT * INTO v_action FROM workflow_actions WHERE id = p_action_id;
+	SELECT * INTO v_action FROM public.workflow_actions WHERE id = p_action_id;
 	
 	-- User must be assigned to the action
 	IF v_action.assigned_to != auth.uid() THEN
 		-- Check if user is workflow admin
-		IF is_workflow_admin() THEN
+		IF public.is_workflow_admin() THEN
 			RETURN TRUE;
 		END IF;
 		RETURN FALSE;
@@ -142,22 +154,22 @@ BEGIN
 	
 	-- Get role requirements for this action type
 	SELECT min_role_level INTO v_min_level
-	FROM workflow_action_role_assignments
+	FROM public.workflow_action_role_assignments
 	WHERE template_stage_id = (
 		SELECT template_stage_id 
-		FROM workflow_stage_instances 
+		FROM public.workflow_stage_instances 
 		WHERE id = v_action.stage_instance_id
 	)
 	AND action_type = v_action.action_type;
 	
 	-- Check role level
-	IF v_min_level IS NOT NULL AND fn_get_current_role_level() < v_min_level THEN
+	IF v_min_level IS NOT NULL AND public.fn_get_current_role_level() < v_min_level THEN
 		RETURN FALSE;
 	END IF;
 	
 	RETURN TRUE;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- Users can create workflow instances with proper permissions
 CREATE POLICY "Users can create workflow instances with permission"

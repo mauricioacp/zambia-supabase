@@ -27,7 +27,14 @@
       "Bash(docker volume:*)",
       "mcp__postgres__query",
       "mcp__supabase__query",
-      "Bash(deno:*)"
+      "Bash(deno:*)",
+      "Bash(for:*)",
+      "Bash(do)",
+      "Bash(echo:*)",
+      "Bash(awk:*)",
+      "Bash(done)",
+      "Bash(supabase status:*)",
+      "Bash(psql:*)"
     ],
     "deny": []
   },
