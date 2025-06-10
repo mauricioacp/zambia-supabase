@@ -21,15 +21,41 @@ import { requireMinRoleLevel } from "./middleware/auth.ts";
 
 export const app = new Hono();
 
-// Enable CORS for all origins in development
+// Enable CORS with specific origins for production
 app.use('*', cors({
-    origin: '*',
+    origin: (origin) => {
+        // Allow specific production domains and localhost for development
+        const allowedOrigins = [
+            'https://app.laakademia.digital',
+            'https://laakademia.digital',
+            'http://localhost:4200',
+            'http://localhost:3000',
+            'http://127.0.0.1:4200',
+            'http://127.0.0.1:3000'
+        ];
+        
+        if (!origin || allowedOrigins.includes(origin)) {
+            return origin || '*';
+        }
+        
+        // Allow any origin in development
+        if (Deno.env.get('ENVIRONMENT') === 'development') {
+            return '*';
+        }
+        
+        return null;
+    },
     allowHeaders: ['Content-Type', 'Authorization', 'x-client-info', 'apikey', 'X-Requested-With'],
     allowMethods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
     credentials: true,
     exposeHeaders: ['Content-Length', 'X-JSON'],
     maxAge: 86400,
 }));
+
+// Handle OPTIONS requests explicitly for all routes
+app.options('*', (c) => {
+    return c.text('', 204);
+});
 
 app.get('/akademy-app/health', (c) => {
     return c.json({
