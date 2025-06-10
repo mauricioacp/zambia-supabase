@@ -4,13 +4,11 @@ import { getUserRoleLevel } from "../utils/auth.ts";
 
 export function requireMinRoleLevel(minLevel: number) {
   return async (c: Context, next: Next) => {
-    // Skip authentication for OPTIONS requests (CORS preflight)
     if (c.req.method === 'OPTIONS') {
       await next();
       return;
     }
 
-    // Get the Authorization header
     const authHeader = c.req.header('Authorization');
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -36,7 +34,7 @@ export function requireMinRoleLevel(minLevel: number) {
     }
 
     c.set("userLevel", userLevel);
-    c.set("userToken", token); // Store token for later use
+    c.set("userToken", token);
     await next();
   };
 }
