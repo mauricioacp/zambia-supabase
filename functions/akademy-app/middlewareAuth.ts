@@ -1,6 +1,6 @@
-import { Context, Next } from "hono";
-import { HTTPException } from "hono/http-exception";
-import { getUserRoleLevel } from "../utils/auth.ts";
+import { Context, Next } from 'jsr:@hono/hono@4';
+import { HTTPException } from 'jsr:@hono/hono@4/http-exception';
+import { getUserRoleLevel } from "./auth.ts";
 
 export function requireMinRoleLevel(minLevel: number) {
   return async (c: Context, next: Next) => {

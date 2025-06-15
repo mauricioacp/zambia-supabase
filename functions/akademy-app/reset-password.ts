@@ -1,8 +1,8 @@
-import { Context } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { ZodError } from 'zod';
-import { createAdminSupabaseClient } from '../services/supabaseService.ts';
-import { ResetPasswordSchema, PasswordResetResponse } from '../schemas/user.ts';
+import { Context } from 'jsr:@hono/hono@4';
+import { HTTPException } from 'jsr:@hono/hono@4/http-exception';
+import { ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { createAdminSupabaseClient } from './supabaseService.ts';
+import { ResetPasswordSchema, PasswordResetResponse } from './user.ts';
 
 export async function resetUserPassword(c: Context): Promise<Response> {
 	try {

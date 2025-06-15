@@ -1,4 +1,4 @@
-import { StrapiAgreement } from '../interfaces.ts';
+import { StrapiAgreement } from './interfaces.ts';
 
 /**
  * @param apiUrl
@@ -19,8 +19,12 @@ export async function fetchAllStrapiAgreements(
 	let hasMorePages = true;
 
 	while (hasMorePages) {
-		let url =
-			`${apiUrl}${endpoint}?pagination[page]=${page}&pagination[pageSize]=${pageSize}&populate=*`;
+		// Fix double slash issue by ensuring proper URL construction
+		const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+		const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+		let url = `${baseUrl}${cleanEndpoint}?pagination[page]=${page}&pagination[pageSize]=${pageSize}&populate=*`;
+		
+		// Re-enable server-side filtering now that URL construction is fixed
 		if (lastMigratedAt) {
 			url += `&filters[$or][0][createdAt][$gt]=${
 				encodeURIComponent(lastMigratedAt)
@@ -39,6 +43,7 @@ export async function fetchAllStrapiAgreements(
 				headers: {
 					'Authorization': `Bearer ${apiToken}`,
 					'Accept': 'application/json',
+					'Content-Type': 'application/json',
 				},
 			});
 

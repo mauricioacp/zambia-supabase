@@ -1,15 +1,15 @@
-import { Context } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Context } from 'jsr:@hono/hono@4';
+import { HTTPException } from 'jsr:@hono/hono@4/http-exception';
+import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
-import { fetchAllStrapiAgreements } from '../services/strapiService.ts';
-import { preloadLookupTable } from '../services/supabaseService.ts';
-import { StrapiAgreement } from '../interfaces.ts';
-import { matchData } from '../services/mappingService.ts';
+import { fetchAllStrapiAgreements } from './strapiService.ts';
+import { preloadLookupTable } from './supabaseService.ts';
+import { StrapiAgreement } from './interfaces.ts';
+import { matchData } from './mappingService.ts';
 import {
 	getLastSuccessfulMigrationTimestamp,
 	recordMigration,
-} from '../services/migrationService.ts';
+} from './migrationService.ts';
 
 interface AppConfig {
 	supabaseClient: SupabaseClient;

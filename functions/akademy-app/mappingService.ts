@@ -1,15 +1,15 @@
-import { SupabaseClient } from "@supabase/supabase-js";
-import { StrapiAgreement, SupabaseAgreement } from "../interfaces.ts";
+import { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import { StrapiAgreement, SupabaseAgreement } from "./interfaces.ts";
 import {
   formatIsoDate,
   isCreatedMoreThanOneYearAgo,
-} from "../utils/helpers.ts";
+} from "./helpers.ts";
 import { getSeasonIdByHeadQuarterId } from "./supabaseService.ts";
 import {
   normalizeHeadquarters,
   normalizeRole,
   normalizeText,
-} from "../utils/dataNormalization.ts";
+} from "./dataNormalization.ts";
 import { checkExistingAgreementsInBatches } from "./agreementChecks.ts";
 
 export async function matchData(
