@@ -34,7 +34,8 @@
       "Bash(awk:*)",
       "Bash(done)",
       "Bash(supabase status:*)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   },

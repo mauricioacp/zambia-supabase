@@ -1,7 +1,7 @@
-import { Context } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { z } from 'zod';
-import { createAdminSupabaseClient } from '../services/supabaseService.ts';
+import { Context } from 'jsr:@hono/hono@4';
+import { HTTPException } from 'jsr:@hono/hono@4/http-exception';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { createAdminSupabaseClient } from './supabaseService.ts';
 
 // Schemas
 const SearchUsersSchema = z.object({

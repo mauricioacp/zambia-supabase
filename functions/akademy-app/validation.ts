@@ -1,6 +1,6 @@
-import { Context, Next } from "hono";
-import { HTTPException } from "hono/http-exception";
-import { CONSTANTS } from "../utils/constants.ts";
+import { Context, Next } from 'jsr:@hono/hono@4';
+import { HTTPException } from 'jsr:@hono/hono@4/http-exception';
+import { CONSTANTS } from "./constants.ts";
 
 /**
  * Middleware to validate request size and basic security checks

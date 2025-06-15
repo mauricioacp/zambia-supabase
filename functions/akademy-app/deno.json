@@ -1,6 +1,6 @@
 {
   "imports": {
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.45.0",
+    "@supabase/supabase-js": "jsr:@supabase/supabase-js@2",
     "@std/crypto": "jsr:@std/crypto@1.0.4",
     "@std/crypto/timing-safe-equal": "jsr:@std/crypto@1.0.4/timing-safe-equal",
     "@std/encoding/base64": "jsr:@std/encoding@1/base64",

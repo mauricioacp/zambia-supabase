@@ -3,8 +3,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 // Get these from your Supabase dashboard
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://your-project.supabase.co';
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'your-service-role-key';
+const SUPABASE_URL = 'https://zgerggiodllgkdslzyof.supabase.co';
+const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpnZXJnZ2lvZGxsZ2tkc2x6eW9mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTUzOTg4OSwiZXhwIjoyMDY1MTE1ODg5fQ.Cdae-HXoINM0sd_UNG8Ian0zLXV49YdBkn4UtYB7Nj8';
 
 if (!SUPABASE_URL || SUPABASE_URL.includes('your-project')) {
   console.error('❌ Please set SUPABASE_URL environment variable or update the script');

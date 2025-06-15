@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 import { 
 	CreateUserFromAgreementRequest, 
 	UserCreationResponse, 
@@ -6,7 +6,7 @@ import {
 	PasswordResetResponse,
 	DeactivateUserRequest,
 	DeactivateUserResponse
-} from '../interfaces.ts';
+} from './interfaces.ts';
 
 // User creation schema
 export const CreateUserFromAgreementSchema = z.object({

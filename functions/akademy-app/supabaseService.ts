@@ -1,6 +1,6 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { SupabaseLookupItem } from '../interfaces.ts';
-import { normalizeText } from '../utils/dataNormalization.ts';
+import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import { SupabaseLookupItem } from './interfaces.ts';
+import { normalizeText } from './dataNormalization.ts';
 
 /**
  * @param supabaseClient

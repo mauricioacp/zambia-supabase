@@ -278,6 +278,7 @@ CREATE TRIGGER handle_updated_at_table_name
 #### Import Map Configuration
 - **Function-specific imports**: Each function should have its own `deno.json` with `imports` section
 - **Avoid shared import maps**: Don't use `importMap` pointing to shared files in production
+- **CRITICAL: Use JSR imports in code**: All imports in TypeScript files MUST use the full JSR/URL paths, not the mapped names
 - **Required dependencies**:
   ```json
   {
@@ -293,6 +294,30 @@ CREATE TRIGGER handle_updated_at_table_name
     }
   }
   ```
+
+#### JSR Import Requirements
+**CRITICAL**: Edge Functions require direct JSR imports in TypeScript files, not relative imports from deno.json:
+
+- ✅ **Correct**: `import { Hono } from 'jsr:@hono/hono@4';`
+- ❌ **Incorrect**: `import { Hono } from 'hono';`
+
+**Required import patterns:**
+```typescript
+// Hono framework
+import { Hono, Context, Next } from 'jsr:@hono/hono@4';
+import { cors } from 'jsr:@hono/hono@4/cors';
+import { HTTPException } from 'jsr:@hono/hono@4/http-exception';
+
+// Supabase client
+import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+
+// Zod validation
+import { z, ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+
+// Standard library
+import { timingSafeEqual } from 'jsr:@std/crypto@1.0.4/timing-safe-equal';
+import { encodeBase64 } from 'jsr:@std/encoding@1/base64';
+```
 
 #### Function Export Format
 - **Use Deno.serve()**: Functions must use `Deno.serve(app.fetch)` format, not default exports
@@ -337,6 +362,12 @@ npx supabase functions serve --debug
 - **"Worker failed to boot"**: Check import map configuration and entry point
 - **"Module not found"**: Verify function-specific imports in `deno.json`
 - **"Function not found"**: Check function is enabled in `config.toml`
+- **"Relative import path not prefixed"**: Use full JSR paths in imports (e.g., `jsr:@hono/hono@4` not `hono`)
+
+#### External API Integration Issues
+- **Strapi "Malicious Path" Error**: Usually caused by double slashes in URLs (e.g., `https://api.com//endpoint`)
+  - **Fix**: Normalize URL construction by removing trailing slashes from base URL before concatenation
+  - **Example**: `const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;`
 
 ### Hono Framework Integration
 - **Route prefixes**: All routes must include function name prefix

@@ -1,11 +1,11 @@
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { HTTPException } from 'hono/http-exception';
+import { Hono } from 'jsr:@hono/hono@4';
+import { cors } from 'jsr:@hono/hono@4/cors';
+import { HTTPException } from 'jsr:@hono/hono@4/http-exception';
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
-import { strapiMigrationRoute } from "./routes/migration.ts";
-import { createUserFromAgreement } from "./routes/create-user.ts";
-import { resetUserPassword } from "./routes/reset-password.ts";
-import { deactivateUser } from "./routes/deactivate-user.ts";
+import { strapiMigrationRoute } from "./migration.ts";
+import { createUserFromAgreement } from "./create-user.ts";
+import { resetUserPassword } from "./reset-password.ts";
+import { deactivateUser } from "./deactivate-user.ts";
 import { 
 	searchUsers, 
 	sendNotification, 
@@ -16,20 +16,34 @@ import {
 	archiveNotification,
 	getNotificationPreferences,
 	updateNotificationPreferences 
-} from "./routes/notifications.ts";
-import { requireMinRoleLevel } from "./middleware/auth.ts";
+} from "./notifications.ts";
+import { requireMinRoleLevel } from "./middlewareAuth.ts";
 
 export const app = new Hono();
 
-// Enable CORS for all origins in development
 app.use('*', cors({
-    origin: '*',
+    origin: (origin) => {
+        const allowedOrigins = [
+            'https://app.laakademia.digital',
+            'https://laakademia.digital',
+        ];
+        
+        if (!origin || allowedOrigins.includes(origin)) {
+            return origin || '*';
+        }
+        
+        return null;
+    },
     allowHeaders: ['Content-Type', 'Authorization', 'x-client-info', 'apikey', 'X-Requested-With'],
     allowMethods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
     credentials: true,
     exposeHeaders: ['Content-Length', 'X-JSON'],
     maxAge: 86400,
 }));
+
+app.options('*', (c) => {
+    return c.text('', 204);
+});
 
 app.get('/akademy-app/health', (c) => {
     return c.json({

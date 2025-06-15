@@ -1,9 +1,9 @@
-import { Context } from 'hono';
-import { HTTPException } from 'hono/http-exception';
-import { ZodError } from 'zod';
-import { createAdminSupabaseClient } from '../services/supabaseService.ts';
-import { CreateUserFromAgreementSchema, UserCreationResponse } from '../schemas/user.ts';
-import { generatePassword } from '../utils/auth.ts';
+import { Context } from 'jsr:@hono/hono@4';
+import { HTTPException } from 'jsr:@hono/hono@4/http-exception';
+import { ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { createAdminSupabaseClient } from './supabaseService.ts';
+import { CreateUserFromAgreementSchema, UserCreationResponse } from './user.ts';
+import { generatePassword } from './auth.ts';
 
 export async function createUserFromAgreement(c: Context): Promise<Response> {
 	try {
