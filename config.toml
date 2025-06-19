@@ -28,7 +28,7 @@ port = 54322
 shadow_port = 54320
 # The database major version to use. This has to be the same as your remote database's. Run `SHOW
 # server_version;` on the remote database to check.
-major_version = 15
+major_version = 17
 
 [db.pooler]
 enabled = false
@@ -69,6 +69,7 @@ schema_paths = [
   "./schemas/student_attendance.sql",
   "./schemas/workshop_triggers.sql",
   "./schemas/dashboard_functions.sql",
+  "./schemas/home_dashboard_functions.sql",
   "./schemas/strapi_migrations.sql",
   "./schemas/audit.sql",
   "./schemas/workflows.sql",

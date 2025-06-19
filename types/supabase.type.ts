@@ -17,9 +17,9 @@ export type Database = {
     Functions: {
       graphql: {
         Args: {
+          variables?: Json
           operationName?: string
           query?: string
-          variables?: Json
           extensions?: Json
         }
         Returns: Json
@@ -1673,28 +1673,28 @@ export type Database = {
         Returns: number
       }
       complete_workflow_action: {
-        Args: { p_action_id: string; p_result?: Json; p_comment?: string }
+        Args: { p_result?: Json; p_comment?: string; p_action_id: string }
         Returns: boolean
       }
       create_notification_from_template: {
         Args: {
-          p_template_code: string
           p_recipient_id: string
-          p_variables?: Json
+          p_template_code: string
           p_sender_id?: string
           p_priority?: Database["public"]["Enums"]["notification_priority"]
           p_related_entity_type?: string
           p_related_entity_id?: string
           p_action_url?: string
+          p_variables?: Json
         }
         Returns: string
       }
       create_workflow_instance: {
-        Args: { p_template_id: string; p_data?: Json }
+        Args: { p_data?: Json; p_template_id: string }
         Returns: string
       }
       fn_can_access_agreement: {
-        Args: { p_agreement_hq_id: string; p_agreement_user_id: string }
+        Args: { p_agreement_user_id: string; p_agreement_hq_id: string }
         Returns: boolean
       }
       fn_get_current_agreement_id: {
@@ -1750,7 +1750,7 @@ export type Database = {
         Returns: boolean
       }
       fn_is_role_level_below: {
-        Args: { p_role_id: string; p_level_threshold: number }
+        Args: { p_level_threshold: number; p_role_id: string }
         Returns: boolean
       }
       fn_is_student_or_higher: {
@@ -1871,12 +1871,12 @@ export type Database = {
       }
       get_agreements_with_role_paginated: {
         Args: {
-          p_limit?: number
           p_offset?: number
           p_status?: string
           p_headquarter_id?: string
           p_season_id?: string
           p_search?: string
+          p_limit?: number
           p_role_id?: string
         }
         Returns: Json
@@ -1916,31 +1916,16 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Json
       }
-      get_headquarter_agreements_with_role: {
-        Args: { p_headquarter_id: string }
-        Returns: {
-          id: string
-          user_id: string
-          headquarter_id: string
-          role_id: string
-          season_id: string
-          name: string
-          last_name: string
-          email: string
-          phone: string
-          document_number: string
-          status: string
-          created_at: string
-          updated_at: string
-          role: Json
-          user_email: string
-          headquarter_name: string
-          season_name: string
-          season_status: string
-        }[]
-      }
       get_headquarter_dashboard_stats: {
         Args: { target_hq_id: string }
+        Returns: Json
+      }
+      get_headquarter_quick_stats: {
+        Args: { p_headquarter_id: string }
+        Returns: Json
+      }
+      get_home_dashboard_stats: {
+        Args: { p_agreement_id: string }
         Returns: Json
       }
       get_hq_agreement_breakdown: {
@@ -1961,6 +1946,10 @@ export type Database = {
         Args: { months_back?: number }
         Returns: Json
       }
+      get_my_agreement_summary: {
+        Args: { p_agreement_id: string }
+        Returns: Json
+      }
       get_my_pending_actions: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -1975,8 +1964,16 @@ export type Database = {
           assigned_at: string
         }[]
       }
+      get_organization_overview: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       get_prospect_to_active_avg_time: {
         Args: { target_hq_id?: string }
+        Returns: Json
+      }
+      get_recent_activities: {
+        Args: { p_agreement_id: string; p_role_level: number; p_limit?: number }
         Returns: Json
       }
       get_student_progress_stats: {
@@ -2005,6 +2002,7 @@ export type Database = {
           p_category?: string
         }
         Returns: {
+          data: Json
           id: string
           type: Database["public"]["Enums"]["notification_type"]
           priority: Database["public"]["Enums"]["notification_priority"]
@@ -2012,7 +2010,6 @@ export type Database = {
           sender_name: string
           title: string
           body: string
-          data: Json
           is_read: boolean
           read_at: string
           created_at: string
@@ -2074,11 +2071,11 @@ export type Database = {
         Args: {
           p_role_codes: string[]
           p_title: string
-          p_body: string
           p_min_role_level?: number
           p_type?: Database["public"]["Enums"]["notification_type"]
-          p_priority?: Database["public"]["Enums"]["notification_priority"]
+          p_body: string
           p_data?: Json
+          p_priority?: Database["public"]["Enums"]["notification_priority"]
         }
         Returns: number
       }
