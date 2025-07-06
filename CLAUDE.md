@@ -13,9 +13,6 @@ Akademia Supabase backend - Educational platform with PostgreSQL database, Deno 
 # Start local Supabase stack
 supabase start
 
-# Reset database with migrations and seed data
-supabase db reset
-
 # Serve Edge Functions (choose appropriate env file)
 supabase functions serve --env-file ./functions/.env
 

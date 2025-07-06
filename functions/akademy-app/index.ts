@@ -21,19 +21,10 @@ import { requireMinRoleLevel } from "./middlewareAuth.ts";
 
 export const app = new Hono();
 
+const allowedOrigins = '*';
+
 app.use('*', cors({
-    origin: (origin) => {
-        const allowedOrigins = [
-            'https://app.laakademia.digital',
-            'https://laakademia.digital',
-        ];
-        
-        if (!origin || allowedOrigins.includes(origin)) {
-            return origin || '*';
-        }
-        
-        return null;
-    },
+    origin: allowedOrigins,
     allowHeaders: ['Content-Type', 'Authorization', 'x-client-info', 'apikey', 'X-Requested-With'],
     allowMethods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
     credentials: true,

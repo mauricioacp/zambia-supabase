@@ -69,7 +69,9 @@ CREATE OR REPLACE FUNCTION update_fts_name_lastname()
 $$
 BEGIN
     NEW.fts_name_lastname :=
-            to_tsvector('simple', coalesce(NEW.name, '') || ' ' || coalesce(NEW.last_name, ''));
+        setweight(to_tsvector('spanish', coalesce(NEW.name, '')), 'A') ||
+        setweight(to_tsvector('spanish', coalesce(NEW.last_name, '')), 'A') ||
+        setweight(to_tsvector('spanish', coalesce(NEW.name, '') || ' ' || coalesce(NEW.last_name, '')), 'B');
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

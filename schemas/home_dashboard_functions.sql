@@ -79,7 +79,7 @@ BEGIN
                 SELECT jsonb_build_object(
                     'id', h.id,
                     'name', h.name,
-                    'city', h.city,
+                    'address', h.address,
                     'country', c.name
                 )
                 FROM public.headquarters h
@@ -207,12 +207,12 @@ BEGIN
                 'id', sa.id,
                 'type', 'attendance',
                 'title', 'Workshop Attendance',
-                'description', 'Attended workshop on ' || sw.date::text,
+                'description', 'Attended workshop on ' || sw.start_datetime::text,
                 'timestamp', sa.created_at
             ) as activity
             FROM public.student_attendance sa
             JOIN public.scheduled_workshops sw ON sa.scheduled_workshop_id = sw.id
-            JOIN public.students s ON sa.student_id = s.id
+            JOIN public.students s ON sa.student_id = s.user_id
             JOIN public.agreements a ON s.user_id = a.user_id
             WHERE a.id = p_agreement_id
             ORDER BY sa.created_at DESC
@@ -262,14 +262,14 @@ BEGIN
             'active', (
                 SELECT COUNT(*)
                 FROM public.students s
-                JOIN public.agreements a ON s.agreement_id = a.id
+                JOIN public.agreements a ON s.user_id = a.user_id
                 WHERE a.headquarter_id = p_headquarter_id
                   AND s.status = 'active'
             ),
             'inactive', (
                 SELECT COUNT(*)
                 FROM public.students s
-                JOIN public.agreements a ON s.agreement_id = a.id
+                JOIN public.agreements a ON s.user_id = a.user_id
                 WHERE a.headquarter_id = p_headquarter_id
                   AND s.status = 'inactive'
             ),
@@ -286,8 +286,8 @@ BEGIN
             SELECT COUNT(*)
             FROM public.scheduled_workshops
             WHERE headquarter_id = p_headquarter_id
-              AND date >= CURRENT_DATE
-              AND date <= CURRENT_DATE + INTERVAL '7 days'
+              AND start_datetime >= CURRENT_DATE
+              AND start_datetime <= CURRENT_DATE + INTERVAL '7 days'
         )
     ) INTO v_stats;
 
@@ -310,7 +310,7 @@ BEGIN
         'total_headquarters', (
             SELECT COUNT(*)
             FROM public.headquarters
-            WHERE active = true
+            WHERE status = 'active'
         ),
         'total_active_agreements', (
             SELECT COUNT(*)
@@ -340,7 +340,7 @@ BEGIN
             FROM (
                 SELECT a.headquarter_id, COUNT(DISTINCT s.id) as student_count
                 FROM public.students s
-                JOIN public.agreements a ON s.agreement_id = a.id
+                JOIN public.agreements a ON s.user_id = a.user_id
                 WHERE s.status = 'active'
                 GROUP BY a.headquarter_id
                 ORDER BY student_count DESC
