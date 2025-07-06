@@ -1,0 +1,24 @@
+/functions/strapi-migration/.env
+/functions/.env
+/.env
+/scripts/credentials.json
+.idea
+.junie
+
+# windsurf rules
+.windsurfrules
+
+# Database backups
+/backups/
+
+/functions/akademy/deno.lock
+/deno.lock
+
+node_modules
+
+.env.production
+.env.local
+.env
+scripts/superadmin-credentials.json
+scripts/superadmin-credentials-*.json
+.temp/

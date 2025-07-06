@@ -1,0 +1,46 @@
+{
+  "imports": {
+    "@std/crypto": "jsr:@std/crypto@^1.0.4",
+    "@std/dotenv": "jsr:@std/dotenv@^0.225.3",
+    "@std/path": "jsr:@std/path@^1.0.9",
+    "@std/assert": "jsr:@std/assert@1",
+    "@std/fs": "jsr:@std/fs@^1.0.17",
+    "@std/cli": "jsr:@std/cli@^1.0.9",
+    "@std/fmt": "jsr:@std/fmt@^1.0.4",
+    "supabase": "https://esm.sh/@supabase/supabase-js@2.39.8"
+  },
+  "compilerOptions": {
+    "strict": true
+  },
+  "tasks": {
+    "generate:test:users": "deno run --allow-net --allow-env --allow-read --allow-write scripts/create-test-users.ts --env=.env",
+    "generate:supabase:types": "deno run --allow-run=npx --allow-write=types --allow-read scripts/generate_supabase_types.ts",
+    "generate:dev:environment": "deno run --allow-run --allow-net --allow-env --allow-read --allow-write scripts/regenerate-dev.ts",
+    "test:route:access": "deno run --allow-net --allow-env --allow-read scripts/test-route-access.ts",
+    "test": "deno test --allow-net --allow-env --allow-read --env=.env tests/*.ts",
+    "test:akademy": "cd functions/akademy && deno task test",
+    "test:user-management": "cd functions/user-management && deno task test",
+    "deploy:db:seed": "npx supabase db push --include-seed",
+    "deploy:functions": "npx supabase functions deploy",
+    "backup:db": "npx supabase db dump -f backup-$(date +%Y%m%d-%H%M%S).sql",
+    "reset:db": "npx supabase db reset --linked",
+    "diff:schema": "npx supabase db diff --linked --use-migra",
+    "serve:local": "npx supabase functions serve --env-file .env.local"
+  },
+  "fmt": {
+    "useTabs": true,
+    "lineWidth": 80,
+    "indentWidth": 4,
+    "semiColons": true,
+    "singleQuote": true,
+    "proseWrap": "preserve",
+    "include": ["**/*.ts"]
+  },
+  "lint": {
+    "include": ["**/*.ts"],
+    "rules": {
+      "tags": ["recommended"]
+    }
+  }
+
+}

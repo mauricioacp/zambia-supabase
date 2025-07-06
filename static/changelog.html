@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Changelog del Producto</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            background-color: #022ac1;
+            color: #e0e0e0;
+            font-family: sans-serif;
+        }
+
+        .border-grid {
+            border-color: #2a2a2a;
+        }
+        .bg-grid-color {
+            background-color: #2a2a2a;
+        }
+        .text-primary-text {
+            color: #e0e0e0;
+        }
+        .text-secondary-text {
+            color: #a0a0a0;
+        }
+        .text-brand-dark {
+            color: #17E9D1;
+        }
+        .hover\:text-brand-accent:hover {
+            color: #4ff9e1;
+        }
+        .bg-secondary-badge {
+            background-color: rgba(160, 160, 160, 0.2);
+        }
+
+        .changelog-content h1, .changelog-content h2 {
+            color: #f0f0f0;
+            margin-bottom: 0.5rem;
+        }
+        .changelog-content h1 {
+            font-size: 1.25rem;
+            line-height: 1.75rem;
+            font-weight: 500;
+            letter-spacing: -0.025em;
+        }
+        .changelog-content h2 {
+            font-size: 1.125rem;
+            line-height: 1.75rem;
+            font-weight: 400;
+            margin-top: 1.5rem;
+        }
+        .changelog-content ul {
+            list-style: disc;
+            padding-left: 1.5rem;
+            margin-top: 0.5rem;
+            margin-bottom: 2rem;
+            color: #e0e0e0;
+        }
+        .changelog-content li {
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+        }
+        .changelog-content a {
+            color: #17E9D1;
+            text-decoration: underline;
+        }
+        .changelog-content a:hover {
+            color: #4ff9e1;
+        }
+        .changelog-content img {
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+        }
+        #starfield-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            display: block;
+        }
+
+        article.changelog-content img,
+        .sticky .bg-secondary-badge,
+        header .bg-secondary-badge {
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            border-radius: 0.375rem;
+        }
+
+        article.changelog-content img:hover {
+            transform: translateY(-5px) scale(1.01);
+            box-shadow: 0 10px 30px rgba(23, 233, 209, 0.25);
+        }
+
+        .sticky .bg-secondary-badge:hover,
+        header .bg-secondary-badge:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(23, 233, 209, 0.3);
+        }
+
+        .corner-box::before,
+        .corner-box::after {
+            content: '';
+            position: absolute;
+            width: 0.5rem;
+            height: 0.5rem;
+            background-color: #2a2a2a;
+            transform: rotate(-45deg);
+            z-index: 10;
+            display: none;
+        }
+        .corner-box.top-left::before { display: block; top: -0.25rem; left: -0.25rem; }
+        .corner-box.bottom-left::before { display: block; bottom: -0.25rem; left: -0.25rem; }
+        .corner-box.top-right::after { display: block; top: -0.25rem; right: -0.25rem; }
+        .corner-box.bottom-right::after { display: block; bottom: -0.25rem; right: -0.25rem; }
+
+
+    </style>
+</head>
+<body class="bg-[#0a0a0a] text-gray-200 font-sans">
+
+<canvas id="starfield-canvas"></canvas>
+
+<div class="mx-auto flex w-full max-w-[90rem] flex-col px-4 pt-20 md:pt-28">
+    <div class="flex grow flex-col justify-between">
+        <main class="mb-auto">
+            <div class="flex flex-col">
+                <div class="mx-auto flex w-full max-w-7xl flex-col items-center justify-center">
+                    <div class="relative grid w-full grid-cols-[0.1fr_3fr_0.1fr] md:grid-cols-[1fr_3.1fr_1fr]">
+
+                        <div class="absolute inset-0 pointer-events-none">
+                            <div class="absolute left-0 right-0 top-0 h-1 bg-gradient-to-b from-[#0a0a0a] to-transparent md:h-8"></div>
+                            <div class="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-[#0a0a0a] to-transparent"></div>
+                            <div class="absolute bottom-0 left-0 top-0 w-1 bg-gradient-to-r from-[#0a0a0a] to-transparent md:w-8"></div>
+                            <div class="absolute bottom-0 right-0 top-0 w-1 bg-gradient-to-l from-[#0a0a0a] to-transparent md:w-8"></div>
+                        </div>
+
+                        <div class="h-5 border-b border-grid md:h-16"></div>
+                        <div class="border-x border-b border-grid"></div>
+                        <div class="border-b border-grid"></div>
+
+                        <div class="border-b border-grid"></div>
+                        <div class="relative flex items-center justify-center border-x border-b border-grid corner-box top-left top-right bottom-left bottom-right">
+                            <div class="flex w-full flex-col items-center justify-center px-4 py-14 md:px-11 lg:items-start">
+                                <h1 class="w-full text-center text-4xl font-medium tracking-tight text-primary-text [text-shadow:_0_-20px_40px_rgba(255,255,255,0.10),_0_20px_40px_rgba(255,255,255,0.10)] md:text-5xl xl:text-start">
+                                    Changelog de Mi Producto
+                                </h1>
+                                <div class="mt-3 flex w-full items-center justify-center gap-4 xl:justify-start">
+                                    <a class="flex items-center font-mono text-sm font-medium text-brand-dark hover:text-brand-accent" target="_blank" href="#">
+                                        Ver Documentación
+                                    </a>
+                                    <span class="h-[3px] w-[3px] rounded-full bg-secondary-text"></span>
+                                    <a class="group inline-flex items-center gap-1.5 font-mono text-sm font-medium text-brand-dark hover:text-brand-accent" target="_blank" href="#">
+                                            <span class="inline-flex items-center gap-1.5">
+                                                Síguenos en
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" class="h-4 w-auto fill-brand-dark align-middle group-hover:fill-brand-accent">
+                                                    <path d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"></path>
+                                                </svg>
+                                            </span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="border-b border-grid"></div>
+
+                        <div class="border-b border-grid">
+                            <div class="sticky top-28 mt-16 hidden w-full items-start gap-4 px-4 pb-20 pt-4 md:flex md:flex-col">
+                                <div class="flex h-7 items-center rounded bg-secondary-badge px-4 text-base font-medium text-secondary-text">
+                                    v 1.1.0
+                                </div>
+                                <div class="text-sm text-secondary-text">22 Abril, 2025</div>
+                            </div>
+                        </div>
+
+                        <div id="1.1.0" class="relative flex scroll-mt-28 flex-col border-x border-b border-grid corner-box bottom-left bottom-right">
+                            <div class="mx-auto my-5 flex w-full max-w-5xl flex-col px-4 md:mb-10 md:mt-20 md:px-11">
+                                <header class="mb-5 flex flex-col gap-2 md:hidden">
+                                    <div class="w-fit rounded bg-secondary-badge px-4 py-1 text-base font-medium text-secondary-text">
+                                        v 1.1.0
+                                    </div>
+                                    <div class="text-sm text-secondary-text">22 Abril, 2025</div>
+                                </header>
+                                <article class="w-full changelog-content">
+                                    <h1>Nueva Funcionalidad Increíble y Mejoras</h1>
+                                    <img alt="Banner changelog v1.1.0" loading="lazy" width="1225" height="448" class="mb-10 h-auto w-full rounded-md" style="color:transparent" src="https://placehold.co/1225x448/1a1a1a/e0e0e0?text=Banner+v1.1.0">
+
+                                    <h2>✨ Nueva Funcionalidad: Editor Mágico</h2>
+                                    <ul>
+                                        <li>Ahora puedes editar texto con nuestro nuevo Editor Mágico.</li>
+                                        <li>Soporte para múltiples formatos y colaboración en tiempo real.</li>
+                                        <li>Integración con servicios externos mejorada.</li>
+                                    </ul>
+
+                                    <h2>🚀 Mejoras de Rendimiento</h2>
+                                    <ul>
+                                        <li>Optimización del tiempo de carga inicial en un 30%.</li>
+                                        <li>Reducción del uso de memoria en operaciones complejas.</li>
+                                        <li>Mejora general de la fluidez de la interfaz.</li>
+                                    </ul>
+
+                                    <h2>🐛 Corrección de Errores</h2>
+                                    <ul>
+                                        <li>Solucionado un problema que causaba cierres inesperados al guardar.</li>
+                                        <li>Corregido error visual en la barra lateral en pantallas pequeñas.</li>
+                                        <li>Mejorada la compatibilidad con navegadores antiguos.</li>
+                                    </ul>
+                                </article>
+                            </div>
+                        </div>
+
+                        <div class="border-b border-grid"></div>
+
+                        <div class="border-b border-grid">
+                            <div class="sticky top-28 mt-16 hidden w-full items-start gap-4 px-4 pb-20 pt-4 md:flex md:flex-col">
+                                <div class="flex h-7 items-center rounded bg-secondary-badge px-4 text-base font-medium text-secondary-text">
+                                    v 1.0.0
+                                </div>
+                                <div class="text-sm text-secondary-text">15 Abril, 2025</div>
+                            </div>
+                        </div>
+
+                        <div id="1.0.0" class="relative flex scroll-mt-28 flex-col border-x border-b border-grid corner-box bottom-left bottom-right">
+                            <div class="mx-auto my-5 flex w-full max-w-5xl flex-col px-4 md:mb-10 md:mt-20 md:px-11">
+                                <header class="mb-5 flex flex-col gap-2 md:hidden">
+                                    <div class="w-fit rounded bg-secondary-badge px-4 py-1 text-base font-medium text-secondary-text">
+                                        v 1.0.0
+                                    </div>
+                                    <div class="text-sm text-secondary-text">15 Abril, 2025</div>
+                                </header>
+                                <article class="w-full changelog-content">
+                                    <h1>🎉 Lanzamiento Inicial del Producto</h1>
+                                    <img alt="Banner changelog v1.0.0" loading="lazy" width="1225" height="448" class="mb-10 h-auto w-full rounded-md" style="color:transparent" src="https://placehold.co/1225x448/1a1a1a/e0e0e0?text=Banner+v1.0.0">
+
+                                    <h2>🚀 Características Principales</h2>
+                                    <ul>
+                                        <li>Presentación de la plataforma base.</li>
+                                        <li>Funcionalidades clave de creación y gestión.</li>
+                                        <li>Interfaz de usuario intuitiva y moderna.</li>
+                                    </ul>
+                                    <h2>🛠️ Próximos Pasos</h2>
+                                    <ul>
+                                        <li>Implementación de nuevas herramientas de análisis.</li>
+                                        <li>Expansión de las opciones de personalización.</li>
+                                    </ul>
+                                </article>
+                            </div>
+                        </div>
+
+                        <div class="border-b border-grid"></div>
+
+                        <div class="h-16 border-grid"></div>
+                        <div class="border-l border-grid"></div>
+                        <div class="border-l border-grid"></div>
+                    </div></div>
+            </div>
+        </main>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('starfield-canvas');
+        if (!canvas) {
+            console.error("Canvas element not found!");
+            return;
+        }
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 1;
+
+        const renderer = new THREE.WebGLRenderer({
+            canvas: canvas,
+            alpha: true
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+        const starGeometry = new THREE.BufferGeometry();
+        const starCount = 10000;
+        const positions = new Float32Array(starCount * 3);
+
+        for (let i = 0; i < starCount * 3; i++) {
+
+            positions[i] = (Math.random() - 0.5) * 100;
+        }
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+        const starMaterial = new THREE.PointsMaterial({
+            color: 0xaaaaaa,
+            size: 0.05,
+            sizeAttenuation: true
+        });
+
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+
+        window.addEventListener('resize', () => {
+
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        });
+
+        const animate = () => {
+            requestAnimationFrame(animate);
+
+            stars.rotation.x += 0.0001;
+            stars.rotation.y += 0.0001;
+            renderer.render(scene, camera);
+        };
+        animate();
+    });
+</script>
+</body>
+</html>
