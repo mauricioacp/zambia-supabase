@@ -13,7 +13,6 @@ export async function createUserFromAgreement(c: Context): Promise<Response> {
 
 		const supabaseAdmin = createAdminSupabaseClient();
 
-		// Get agreement data with related information
 		const { data: agreement, error: agreementError } = await supabaseAdmin
 			.from('agreements')
 			.select(`
@@ -33,17 +32,14 @@ export async function createUserFromAgreement(c: Context): Promise<Response> {
 			});
 		}
 
-		// Check if user can create this role level
 		if (agreement.role.level > userLevel) {
 			throw new HTTPException(403, { 
 				message: `Cannot create user with role level ${agreement.role.level}. Your level: ${userLevel}` 
 			});
 		}
 
-		// Generate password
 		const password = generatePassword();
 
-		// Create user with Supabase auth
 		const { data: userData, error: userError } = await supabaseAdmin.auth.admin
 			.createUser({
 				email: agreement.email,
@@ -66,7 +62,6 @@ export async function createUserFromAgreement(c: Context): Promise<Response> {
 			throw new HTTPException(500, { message: `Failed to create user: ${userError.message}` });
 		}
 
-		// Update agreement with user_id and change status to active
 		const { error: updateError } = await supabaseAdmin
 			.from('agreements')
 			.update({ 
@@ -77,7 +72,6 @@ export async function createUserFromAgreement(c: Context): Promise<Response> {
 			.eq('id', agreement.id);
 
 		if (updateError) {
-			// Try to delete the created user if agreement update fails
 			await supabaseAdmin.auth.admin.deleteUser(userData.user.id);
 			throw new HTTPException(500, { message: `Failed to update agreement: ${updateError.message}` });
 		}

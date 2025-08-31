@@ -6,7 +6,8 @@ import { strapiMigrationRoute } from "./migration.ts";
 import { createUserFromAgreement } from "./create-user.ts";
 import { resetUserPassword } from "./reset-password.ts";
 import { deactivateUser } from "./deactivate-user.ts";
-import { 
+import { emailHandler } from "./email-handler.ts";
+import {
 	searchUsers, 
 	sendNotification, 
 	sendRoleNotification, 
@@ -71,6 +72,7 @@ app.post('/akademy-app/migrate', requireMinRoleLevel(95), strapiMigrationRoute);
 app.post('/akademy-app/create-user', requireMinRoleLevel(30), createUserFromAgreement);
 app.post('/akademy-app/reset-password', requireMinRoleLevel(1), resetUserPassword);
 app.post('/akademy-app/deactivate-user', requireMinRoleLevel(50), deactivateUser);
+app.post('/akademy-app/email', requireMinRoleLevel(1), emailHandler);
 
 
 app.get('/akademy-app/users/search', requireMinRoleLevel(1), searchUsers);

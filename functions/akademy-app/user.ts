@@ -40,9 +40,9 @@ export const PasswordResetResponseSchema = z.object({
 	user_email: z.string().email(),
 });
 
-// User deactivation schema
 export const DeactivateUserSchema = z.object({
 	user_id: z.string().uuid('Invalid user ID format'),
+  active: z.boolean().optional(),
 });
 
 export const DeactivateUserResponseSchema = z.object({

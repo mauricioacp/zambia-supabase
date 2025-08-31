@@ -7,7 +7,7 @@ import { DeactivateUserSchema, DeactivateUserResponse } from './user.ts';
 export async function deactivateUser(c: Context): Promise<Response> {
 	try {
 		const body = await c.req.json();
-		const validatedData = DeactivateUserSchema.parse(body);
+		const validatedData: DeactivateUserSchema = DeactivateUserSchema.parse(body);
 
 		const supabaseAdmin = createAdminSupabaseClient();
 
@@ -18,10 +18,9 @@ export async function deactivateUser(c: Context): Promise<Response> {
 			throw new HTTPException(404, { message: 'User not found' });
 		}
 
-		const { error: updateError } = await supabaseAdmin.auth.admin
-			.updateUserById(validatedData.user_id, {
-                ban_duration : new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString() // 100 years from now
-			});
+    const { error: updateError } =await supabase.auth.admin.updateUserById(id, {
+      ban_duration: validatedData.active ? "none" : "876600h", // 100 years
+    });
 
 		if (updateError) {
 			throw new HTTPException(500, { 
@@ -36,7 +35,6 @@ export async function deactivateUser(c: Context): Promise<Response> {
 
 		if (agreementError) {
 			console.error('Warning: Failed to update agreement status:', agreementError);
-			// Don't fail the request as user is already deactivated
 		}
 
 		const response: DeactivateUserResponse = {
