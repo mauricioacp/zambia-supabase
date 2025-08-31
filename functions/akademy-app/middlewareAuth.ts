@@ -18,22 +18,23 @@ export function requireMinRoleLevel(minLevel: number) {
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    const userLevel = await getUserRoleLevel(token);
+    const metadata = await getUserRoleLevel(token);
 
-    if (userLevel === null) {
+    if (metadata.role_level === null) {
       throw new HTTPException(401, {
         message: "Invalid token or user not found",
       });
     }
 
-    if (userLevel < minLevel) {
+    if (metadata.role_level < minLevel) {
       throw new HTTPException(403, {
         message:
           `Insufficient permissions. Required level: ${minLevel}, your level: ${userLevel}`,
       });
     }
 
-    c.set("userLevel", userLevel);
+    c.set("userLevel", metadata.role_level);
+    c.set("userMetadata", metadata);
     c.set("userToken", token);
     await next();
   };

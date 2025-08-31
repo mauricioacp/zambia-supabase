@@ -1,11 +1,10 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-export async function getUserRoleLevel(token: string): Promise<number | null> {
+export async function getUserRoleLevel(token: string): Promise<any | null> {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-    // Create a client with the user's token
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
@@ -24,9 +23,6 @@ export async function getUserRoleLevel(token: string): Promise<number | null> {
       return null;
     }
 
-    console.log("User ID:", user.id);
-    console.log("User metadata:", user.user_metadata);
-
     const metadata = user.user_metadata;
 
     if (!metadata || typeof metadata.role_level !== 'number') {
@@ -34,18 +30,15 @@ export async function getUserRoleLevel(token: string): Promise<number | null> {
       return null;
     }
 
-    console.log("User role level:", metadata.role_level);
-    return metadata.role_level as number;
-
+    return {
+      metadata
+    }
   } catch (error) {
     console.error("Error extracting role level from token:", error);
     return null;
   }
 }
 
-/**
- * Generates a cryptographically secure random password
- */
 export function generatePassword(): string {
   const length = 12;
   const charset =
