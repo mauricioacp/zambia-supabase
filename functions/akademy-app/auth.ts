@@ -1,38 +1,31 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
-export async function getUserRoleLevel(token: string): Promise<any | null> {
+export async function getUserMiddleware(token: string): Promise<any | null> {
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
+          Authorization: `Bearer ${token}`,
+        },
+      },
     });
 
     const {
       data: { user },
-      error
+      error,
     } = await supabase.auth.getUser(token);
-    
+
     if (error || !user) {
       console.error("Error getting user:", error);
       return null;
     }
 
-    const metadata = user.user_metadata;
-
-    if (!metadata || typeof metadata.role_level !== 'number') {
-      console.error("No role_level in user metadata:", metadata);
-      return null;
-    }
-
     return {
-      metadata
-    }
+      user
+    };
   } catch (error) {
     console.error("Error extracting role level from token:", error);
     return null;

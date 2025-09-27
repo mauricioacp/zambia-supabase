@@ -9,35 +9,25 @@ export async function changeUserRole(c: Context): Promise<Response> {
 
   try {
     const body = await c.req.json();
-    const validatedData = ChangeRoleSchema.parse(body);
+    const { agreement_id, new_role_id } = ChangeRoleSchema.parse(body);
     const supabaseAdmin = createAdminSupabaseClient();
 
-    const { data: agreement, error: agreementError } = await supabaseAdmin
-      .from("agreements")
-      .select(`
-				*,
-				role:roles(*),
-				user_id
-			`)
-      .eq("id", validatedData.agreement_id)
-      .single();
+      const { data: originalAgreement, error: originalError } = await supabaseAdmin
+          .from("agreements")
+          .select("role_id, updated_at")
+          .eq("id", agreement_id)
+          .single();
 
-    if (agreementError || !agreement) {
-      throw new HTTPException(404, {
-        message: "Agreement not found",
-      });
-    }
+      if (originalError || !originalAgreement) {
+          throw new HTTPException(404, {
+              message: "Agreement not found",
+          });
+      }
 
-    if (!agreement.user_id) {
-      throw new HTTPException(400, {
-        message: "Agreement does not have an associated user",
-      });
-    }
-
-    const { data: targetRole, error: roleError } = await supabaseAdmin
+      const { data: targetRole, error: roleError } = await supabaseAdmin
       .from("roles")
-      .select("*")
-      .eq("id", validatedData.new_role_id)
+      .select("id,level,code,name")
+      .eq("id", new_role_id)
       .eq("status", "active")
       .single();
 
@@ -50,27 +40,36 @@ export async function changeUserRole(c: Context): Promise<Response> {
     if (targetRole.level > userLevel) {
       throw new HTTPException(403, {
         message:
-          `Cannot change to role level ${targetRole.level}. Your level: ${userLevel}`,
-      });
-    }
-
-    if (agreement.role_id === validatedData.new_role_id) {
-      throw new HTTPException(400, {
-        message: "User already has this role",
+          `Cannot change to role level ${targetRole.level}. Lack of permissions`,
       });
     }
 
     const { error: agreementUpdateError } = await supabaseAdmin
       .from("agreements")
       .update({
-        role_id: validatedData.new_role_id,
+        role_id: new_role_id,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", validatedData.agreement_id);
+      .eq("id", agreement_id);
 
     if (agreementUpdateError) {
       throw new HTTPException(500, {
         message: `Failed to update agreement: ${agreementUpdateError.message}`,
+      });
+    }
+
+    const {data: agreement, error: agreementError } = await supabaseAdmin
+      .from("agreements")
+      .select(
+        `id, user_id, headquarter_id, phone, last_name, season_id, name, role_id, updated_at,
+        role (id, code, name, level)`,
+      )
+      .eq("id", agreement_id)
+      .single();
+
+    if (agreementError || !agreement) {
+      throw new HTTPException(404, {
+        message: "Agreement not found after update",
       });
     }
 
@@ -90,13 +89,17 @@ export async function changeUserRole(c: Context): Promise<Response> {
       });
 
     if (userUpdateError) {
-      await supabaseAdmin
+      const { error: rollbackError } = await supabaseAdmin
         .from("agreements")
         .update({
-          role_id: agreement.role_id,
-          updated_at: agreement.updated_at,
+          role_id: originalAgreement.role_id,
+          updated_at: originalAgreement.updated_at,
         })
-        .eq("id", validatedData.agreement_id);
+        .eq("id", agreement_id);
+
+      if (rollbackError) {
+        console.error("Failed to rollback agreement:", rollbackError);
+      }
 
       throw new HTTPException(500, {
         message: `Failed to update user metadata: ${userUpdateError.message}`,
@@ -105,7 +108,7 @@ export async function changeUserRole(c: Context): Promise<Response> {
 
     const response: ChangeRoleResponse = {
       message: "Role changed successfully",
-      agreement_id: validatedData.agreement_id,
+      agreement_id: agreement_id,
       user_id: agreement.user_id,
       old_role: {
         id: agreement.role.id,
@@ -125,11 +128,8 @@ export async function changeUserRole(c: Context): Promise<Response> {
   } catch (error) {
     if (error instanceof ZodError) {
       throw new HTTPException(400, {
-        message: `Validation error: ${
-          error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(
-            ", ",
-          )
-        }`,
+        message: "Invalid request data",
+        details: error.errors,
       });
     }
 

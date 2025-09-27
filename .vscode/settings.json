@@ -1,9 +1,9 @@
 {
   "deno.enable": true,
   "deno.enablePaths": [
-    "./functions/akademy-app",
+    "./zambia-supabase/akademy-app/functions"
   ],
-  "deno.importMap": "./supabase/functions/akademy-app/deno.json",
+  "deno.importMap": "./zambia-supabase/functions/akademy-app/deno.json",
   "deno.suggest.imports.hosts": {
     "https://deno.land": true,
     "https://esm.sh": true,

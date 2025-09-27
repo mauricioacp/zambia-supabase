@@ -1,6 +1,6 @@
 import { Context, Next } from "jsr:@hono/hono@4";
 import { HTTPException } from "jsr:@hono/hono@4/http-exception";
-import { getUserRoleLevel } from "./auth.ts";
+import {getUserMiddleware} from "./auth.ts";
 
 export function requireMinRoleLevel(minLevel: number) {
   return async (c: Context, next: Next) => {
@@ -17,8 +17,8 @@ export function requireMinRoleLevel(minLevel: number) {
       });
     }
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    const metadata = await getUserRoleLevel(token);
+    const token = authHeader.substring(7);
+    const {user} = await getUserMiddleware(token);
 
     if (metadata.role_level === null) {
       throw new HTTPException(401, {
@@ -34,7 +34,8 @@ export function requireMinRoleLevel(minLevel: number) {
     }
 
     c.set("userLevel", metadata.role_level);
-    c.set("userMetadata", metadata);
+    c.set("user", user);
+    c.set("userMetadata", user.metadata);
     c.set("userToken", token);
     await next();
   };
