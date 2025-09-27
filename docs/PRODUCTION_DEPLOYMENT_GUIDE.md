@@ -24,7 +24,8 @@ STRAPI_API_TOKEN=your_strapi_api_token_here
 # Set your database password
 export SUPABASE_DB_PASSWORD="your_database_password"
 
-# Link to your production project
+# Link to your production project WARNING your env variables of the current path .env will be detected for login aka SUPABASE_ACCESS_TOKEN
+npx supabase link -p YOUR_PASSWORD
 npx supabase link --project-ref your_project_ref
 
 # Verify connection

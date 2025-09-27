@@ -1,17 +1,17 @@
-import { Context, Next } from 'jsr:@hono/hono@4';
-import { HTTPException } from 'jsr:@hono/hono@4/http-exception';
+import { Context, Next } from "jsr:@hono/hono@4";
+import { HTTPException } from "jsr:@hono/hono@4/http-exception";
 import { getUserRoleLevel } from "./auth.ts";
 
 export function requireMinRoleLevel(minLevel: number) {
   return async (c: Context, next: Next) => {
-    if (c.req.method === 'OPTIONS') {
+    if (c.req.method === "OPTIONS") {
       await next();
       return;
     }
 
-    const authHeader = c.req.header('Authorization');
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const authHeader = c.req.header("Authorization");
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       throw new HTTPException(401, {
         message: "Missing or invalid Authorization header",
       });
@@ -29,7 +29,7 @@ export function requireMinRoleLevel(minLevel: number) {
     if (metadata.role_level < minLevel) {
       throw new HTTPException(403, {
         message:
-          `Insufficient permissions. Required level: ${minLevel}, your level: ${userLevel}`,
+          `Insufficient permissions`,
       });
     }
 
