@@ -7,26 +7,15 @@ import {
   DeactivateUserResponse,
   PasswordResetResponse,
   ResetPasswordRequest,
+  ResendCredentialsResponse,
   UserCreationResponse,
 } from "./interfaces.ts";
 
-// User creation schema
+
 export const CreateUserFromAgreementSchema = z.object({
   agreement_id: z.string().uuid("Invalid agreement ID format"),
 });
 
-export const UserCreationResponseSchema = z.object({
-  user_id: z.string().uuid(),
-  email: z.string().email(),
-  password: z.string(),
-  headquarter_name: z.string(),
-  country_name: z.string(),
-  season_name: z.string(),
-  role_name: z.string(),
-  phone: z.string().nullable(),
-});
-
-// Password reset schema
 export const ResetPasswordSchema = z.object({
   email: z.string().email("Invalid email format"),
   document_number: z.string().min(1, "Document number is required"),
@@ -57,25 +46,6 @@ export const ChangeRoleSchema = z.object({
   new_role_id: z.string().uuid("Invalid role ID format"),
 });
 
-export const ChangeRoleResponseSchema = z.object({
-  message: z.string(),
-  agreement_id: z.string().uuid(),
-  user_id: z.string().uuid(),
-  old_role: z.object({
-    id: z.string().uuid(),
-    code: z.string(),
-    name: z.string(),
-    level: z.number(),
-  }),
-  new_role: z.object({
-    id: z.string().uuid(),
-    code: z.string(),
-    name: z.string(),
-    level: z.number(),
-  }),
-});
-
-
 export type {
   ChangeRoleRequest,
   ChangeRoleResponse,
@@ -84,5 +54,6 @@ export type {
   DeactivateUserResponse,
   PasswordResetResponse,
   ResetPasswordRequest,
+  ResendCredentialsResponse,
   UserCreationResponse,
 };

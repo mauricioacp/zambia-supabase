@@ -7,17 +7,10 @@ import {createUserFromAgreement} from "./create-user.ts";
 import {resetUserPassword} from "./reset-password.ts";
 import {deactivateUser} from "./deactivate-user.ts";
 import {changeUserRole} from "./change-role.ts";
+import {resendUserCredentials} from "./resend-credentials.ts";
 import {emailHandler} from "./email-handler.ts";
 import {
-    archiveNotification,
-    getNotificationPreferences,
-    getNotifications,
-    getUnreadCount,
-    markNotificationsRead,
     searchUsers,
-    sendNotification,
-    sendRoleNotification,
-    updateNotificationPreferences,
 } from "./notifications.ts";
 import {requireMinRoleLevel} from "./middlewareAuth.ts";
 
@@ -93,11 +86,17 @@ app.post(
     requireMinRoleLevel(50),
     deactivateUser,
 );
-app.post("/akademy-app/change-role", requireMinRoleLevel(1), changeUserRole);
+app.post("/akademy-app/change-role", requireMinRoleLevel(49), changeUserRole);
+app.post(
+    "/akademy-app/resend-credentials",
+    requireMinRoleLevel(30),
+    resendUserCredentials,
+);
 app.post("/akademy-app/email", requireMinRoleLevel(1), emailHandler);
 
 app.get("/akademy-app/users/search", requireMinRoleLevel(1), searchUsers);
-app.post(
+
+/* todo app.post(
     "/akademy-app/notifications/send",
     requireMinRoleLevel(1),
     sendNotification,
@@ -132,6 +131,6 @@ app.put(
     "/akademy-app/notifications/preferences",
     requireMinRoleLevel(1),
     updateNotificationPreferences,
-);
+);*/
 
 Deno.serve(app.fetch);

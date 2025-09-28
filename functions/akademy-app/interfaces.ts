@@ -118,3 +118,7 @@ export interface ChangeRoleResponse {
     level: number;
   };
 }
+
+export interface ResendCredentialsRequest {
+  agreement_id: string;
+}

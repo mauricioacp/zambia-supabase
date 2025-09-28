@@ -1,37 +1,35 @@
-import { Context } from 'jsr:@hono/hono@4';
-import { HTTPException } from 'jsr:@hono/hono@4/http-exception';
-import { ZodError } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
-import { createAdminSupabaseClient } from './supabaseService.ts';
-import { CreateUserFromAgreementSchema, UserCreationResponse } from './user.ts';
-import { generatePassword } from './auth.ts';
-import { trackEvent } from './emailService.ts';
+import { Context } from "jsr:@hono/hono@4";
+import { HTTPException } from "jsr:@hono/hono@4/http-exception";
+import { ZodError } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import { createAdminSupabaseClient } from "./supabaseService.ts";
+import { CreateUserFromAgreementSchema, UserCreationResponse } from "./user.ts";
+import { generatePassword } from "./auth.ts";
+import { trackEvent } from "./emailService.ts";
 
 export async function createUserFromAgreement(c: Context): Promise<Response> {
-
-  const userMetadata = await c.get('userMetadata');
+  const userMetadata = await c.get("userMetadata");
 
   try {
     const body = await c.req.json();
     const validatedData = CreateUserFromAgreementSchema.parse(body);
-    const userLevel = c.get('userLevel') as number;
+    const userLevel = c.get("userLevel") as number;
     const supabaseAdmin = createAdminSupabaseClient();
 
     const { data: agreement, error: agreementError } = await supabaseAdmin
-      .from('agreements')
+      .from("agreements")
       .select(`
-				*,
-				role:roles(*),
-				headquarter:headquarters(*, country:countries(*)),
-				season:seasons(*)
-			`)
-      .eq('id', validatedData.agreement_id)
-      .eq('status', 'prospect')
-      .is('user_id', null)
+        id, email, name, last_name, phone, user_id, status, role_id, headquarter_id, season_id,
+        role:roles(code, level, name),
+        headquarter:headquarters(name, country:countries(name))
+      `)
+      .eq("id", validatedData.agreement_id)
+      .eq("status", "prospect")
+      .is("user_id", null)
       .single();
 
     if (agreementError || !agreement) {
       throw new HTTPException(404, {
-        message: 'Agreement not found or already activated',
+        message: "Agreement not found or already activated",
       });
     }
 
@@ -69,13 +67,13 @@ export async function createUserFromAgreement(c: Context): Promise<Response> {
     }
 
     const { error: updateError } = await supabaseAdmin
-      .from('agreements')
+      .from("agreements")
       .update({
         user_id: userData.user.id,
-        status: 'active',
+        status: "active",
         activation_date: new Date().toISOString(),
       })
-      .eq('id', agreement.id);
+      .eq("id", agreement.id);
 
     if (updateError) {
       await supabaseAdmin.auth.admin.deleteUser(userData.user.id);
@@ -97,11 +95,11 @@ export async function createUserFromAgreement(c: Context): Promise<Response> {
     };
 
     try {
-
-      const invitedBy = userMetadata.metadata.first_name + ' ' + userMetadata.metadata.last_name + ' ' + userMetadata.metadata.role;
+      const invitedBy = userMetadata.first_name + " " + userMetadata.last_name +
+        " " + userMetadata.role;
 
       const variables = {
-        name: `${agreement.name || ''} ${agreement.last_name || ''}`.trim(),
+        name: `${agreement.name || ""} ${agreement.last_name || ""}`.trim(),
         email: response.email,
         password: {
           value: response.password,
@@ -109,7 +107,7 @@ export async function createUserFromAgreement(c: Context): Promise<Response> {
         },
         role: response.role_name,
         app_url: {
-          value: 'https://app.laakademia.digital',
+          value: "https://app.laakademia.digital",
           persistent: false,
         },
         hq: response.headquarter_name,
@@ -120,7 +118,7 @@ export async function createUserFromAgreement(c: Context): Promise<Response> {
 
       console.log(`Welcome email sent successfully to ${response.email}`);
     } catch (emailError) {
-      console.error('Failed to send welcome email:', emailError);
+      console.error("Failed to send welcome email:", emailError);
     }
 
     return c.json({ data: response }, 201);
@@ -129,10 +127,10 @@ export async function createUserFromAgreement(c: Context): Promise<Response> {
       throw error;
     }
     if (error instanceof ZodError) {
-      throw new HTTPException(400, { message: 'Invalid request data' });
+      throw new HTTPException(400, { message: "Invalid request data" });
     }
 
-    console.error('Error creating user:', error);
-    throw new HTTPException(500, { message: 'Internal server error' });
+    console.error("Error creating user:", error);
+    throw new HTTPException(500, { message: "Internal server error" });
   }
 }

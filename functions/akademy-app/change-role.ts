@@ -62,7 +62,7 @@ export async function changeUserRole(c: Context): Promise<Response> {
       .from("agreements")
       .select(
         `id, user_id, headquarter_id, phone, last_name, season_id, name, role_id, updated_at,
-        role (id, code, name, level)`,
+        role:roles(id, code, name, level)`,
       )
       .eq("id", agreement_id)
       .single();
@@ -73,37 +73,39 @@ export async function changeUserRole(c: Context): Promise<Response> {
       });
     }
 
-    const { error: userUpdateError } = await supabaseAdmin.auth.admin
-      .updateUserById(agreement.user_id, {
-        user_metadata: {
-          role: targetRole.code,
-          hq_id: agreement.headquarter_id,
-          phone: agreement.phone,
-          role_id: targetRole.id,
-          last_name: agreement.last_name,
-          season_id: agreement.season_id,
-          first_name: agreement.name,
-          role_level: targetRole.level,
-          agreement_id: agreement.id,
-        },
-      });
+    if (agreement.user_id) {
+      const { error: userUpdateError } = await supabaseAdmin.auth.admin
+        .updateUserById(agreement.user_id, {
+          user_metadata: {
+            role: targetRole.code,
+            hq_id: agreement.headquarter_id,
+            phone: agreement.phone,
+            role_id: targetRole.id,
+            last_name: agreement.last_name,
+            season_id: agreement.season_id,
+            first_name: agreement.name,
+            role_level: targetRole.level,
+            agreement_id: agreement.id,
+          },
+        });
 
-    if (userUpdateError) {
-      const { error: rollbackError } = await supabaseAdmin
-        .from("agreements")
-        .update({
-          role_id: originalAgreement.role_id,
-          updated_at: originalAgreement.updated_at,
-        })
-        .eq("id", agreement_id);
+      if (userUpdateError) {
+        const { error: rollbackError } = await supabaseAdmin
+          .from("agreements")
+          .update({
+            role_id: originalAgreement.role_id,
+            updated_at: originalAgreement.updated_at,
+          })
+          .eq("id", agreement_id);
 
-      if (rollbackError) {
-        console.error("Failed to rollback agreement:", rollbackError);
+        if (rollbackError) {
+          console.error("Failed to rollback agreement:", rollbackError);
+        }
+
+        throw new HTTPException(500, {
+          message: `Failed to update user metadata: ${userUpdateError.message}`,
+        });
       }
-
-      throw new HTTPException(500, {
-        message: `Failed to update user metadata: ${userUpdateError.message}`,
-      });
     }
 
     const response: ChangeRoleResponse = {
