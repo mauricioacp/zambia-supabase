@@ -77,6 +77,7 @@ schema_paths = [
   "./schemas/workflow_rbac.sql",
   "./schemas/workflow_audit.sql",
   "./schemas/workflow_functions.sql",
+  "./schemas/user_email_functions.sql",
   "./schemas/notifications.sql",
   "./schemas/notification_functions.sql",
   "./schemas/notification_triggers.sql",
