@@ -123,6 +123,16 @@ $$
 SELECT public.fn_get_current_role_level() >= 80;
 $$;
 
+-- Function that returns true if role is coordinator (80+) or higher
+CREATE OR REPLACE FUNCTION fn_is_coordinator_or_higher()
+    RETURNS boolean
+    LANGUAGE sql
+    STABLE SECURITY DEFINER SET search_path = ''
+AS
+$$
+SELECT public.fn_get_current_role_level() >= 80;
+$$;
+
 -- Function that returns true if role is local manager (50+) or higher
 CREATE OR REPLACE FUNCTION fn_is_local_manager_or_higher()
     RETURNS boolean

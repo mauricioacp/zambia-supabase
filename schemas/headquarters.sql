@@ -33,12 +33,12 @@ ON headquarters FOR INSERT
 TO authenticated
 WITH CHECK ( fn_is_general_director_or_higher() );
 
--- UPDATE: Allow only general directors or higher
+-- UPDATE: Coordinators (80+) can update, field restrictions at app layer
 CREATE POLICY hq_update_high_level
 ON headquarters FOR UPDATE
 TO authenticated
-USING ( fn_is_general_director_or_higher() )
-WITH CHECK ( fn_is_general_director_or_higher() );
+USING ( fn_is_coordinator_or_higher() )
+WITH CHECK ( fn_is_coordinator_or_higher() );
 
 -- DELETE: Allow only general directors or higher
 CREATE POLICY hq_delete_high_level

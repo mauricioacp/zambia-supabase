@@ -1,6 +1,6 @@
-import { createClient, SupabaseClient } from 'jsr:@supabase/supabase-js@2';
-import { SupabaseLookupItem } from './interfaces.ts';
-import { normalizeText } from './dataNormalization.ts';
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { normalizeText } from "./dataNormalization.ts";
+import type { SupabaseLookupItem } from "./interfaces.ts";
 
 /**
  * @param supabaseClient
@@ -11,7 +11,7 @@ import { normalizeText } from './dataNormalization.ts';
 export async function preloadLookupTable(
 	supabaseClient: SupabaseClient,
 	tableName: string,
-	nameColumn: string = 'name',
+	nameColumn: string = "name",
 ): Promise<Map<string, string>> {
 	const { data, error } = await supabaseClient
 		.from(tableName)
@@ -41,9 +41,9 @@ export async function getSeasonIdByHeadQuarterId(
 	supabaseClient: SupabaseClient,
 ) {
 	const { data, error } = await supabaseClient
-		.from('seasons')
-		.select('id')
-		.eq('headquarter_id', headquarterId)
+		.from("seasons")
+		.select("id")
+		.eq("headquarter_id", headquarterId)
 		.single();
 
 	if (error) {
@@ -55,13 +55,13 @@ export async function getSeasonIdByHeadQuarterId(
 }
 
 export function createAdminSupabaseClient(): SupabaseClient {
-	const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-	const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+	const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+	const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 	return createClient(supabaseUrl, supabaseServiceRoleKey, {
 		auth: {
 			autoRefreshToken: false,
-			persistSession: false
-		}
+			persistSession: false,
+		},
 	});
 }

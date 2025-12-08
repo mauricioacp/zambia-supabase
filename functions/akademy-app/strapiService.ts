@@ -1,4 +1,4 @@
-import { StrapiAgreement } from './interfaces.ts';
+import type { StrapiAgreement } from "./interfaces.ts";
 
 /**
  * @param apiUrl
@@ -10,7 +10,7 @@ import { StrapiAgreement } from './interfaces.ts';
 export async function fetchAllStrapiAgreements(
 	apiUrl: string,
 	apiToken: string,
-	endpoint: string = '/api/acuerdo-akademias',
+	endpoint: string = "/api/acuerdo-akademias",
 	lastMigratedAt: string | null,
 ): Promise<StrapiAgreement[]> {
 	const allAgreements: StrapiAgreement[] = [];
@@ -20,18 +20,18 @@ export async function fetchAllStrapiAgreements(
 
 	while (hasMorePages) {
 		// Fix double slash issue by ensuring proper URL construction
-		const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
-		const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+		const baseUrl = apiUrl.endsWith("/") ? apiUrl.slice(0, -1) : apiUrl;
+		const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 		let url = `${baseUrl}${cleanEndpoint}?pagination[page]=${page}&pagination[pageSize]=${pageSize}&populate=*`;
-		
+
 		// Re-enable server-side filtering now that URL construction is fixed
 		if (lastMigratedAt) {
-			url += `&filters[$or][0][createdAt][$gt]=${
-				encodeURIComponent(lastMigratedAt)
-			}`;
-			url += `&filters[$or][1][updatedAt][$gt]=${
-				encodeURIComponent(lastMigratedAt)
-			}`;
+			url += `&filters[$or][0][createdAt][$gt]=${encodeURIComponent(
+				lastMigratedAt,
+			)}`;
+			url += `&filters[$or][1][updatedAt][$gt]=${encodeURIComponent(
+				lastMigratedAt,
+			)}`;
 			console.log(
 				`Filtering records created or updated after: ${lastMigratedAt}`,
 			);
@@ -39,11 +39,11 @@ export async function fetchAllStrapiAgreements(
 
 		try {
 			const response = await fetch(url, {
-				method: 'GET',
+				method: "GET",
 				headers: {
-					'Authorization': `Bearer ${apiToken}`,
-					'Accept': 'application/json',
-					'Content-Type': 'application/json',
+					Authorization: `Bearer ${apiToken}`,
+					Accept: "application/json",
+					"Content-Type": "application/json",
 				},
 			});
 

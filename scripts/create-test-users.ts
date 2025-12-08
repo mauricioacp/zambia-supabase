@@ -2,7 +2,7 @@ import {
 	SUPA_CLIENT,
 	TEST_USER_EMAIL_PREFIX,
 	TEST_USER_PASSWORD,
-} from '../_environment.ts';
+} from "../_environment.ts";
 
 interface Role {
 	id: string;
@@ -21,13 +21,12 @@ interface Credentials {
 }
 
 async function fetchActiveRoles(): Promise<Role[]> {
-	const { data, error } = await SUPA_CLIENT
-		.from('roles')
-		.select('*')
-		.eq('status', 'active');
+	const { data, error } = await SUPA_CLIENT.from("roles")
+		.select("*")
+		.eq("status", "active");
 
 	if (error) {
-		console.error('Error fetching roles:', error.message);
+		console.error("Error fetching roles:", error.message);
 		throw error;
 	}
 
@@ -37,12 +36,10 @@ async function fetchActiveRoles(): Promise<Role[]> {
 async function checkTestUserExists(roleCode: string): Promise<string | null> {
 	const email = `${TEST_USER_EMAIL_PREFIX}${roleCode}@example.com`;
 
-	const { data, error } = await SUPA_CLIENT
-		.auth
-		.admin.listUsers();
+	const { data, error } = await SUPA_CLIENT.auth.admin.listUsers();
 
 	if (error) {
-		console.error('Error checking if user exists:', error.message);
+		console.error("Error checking if user exists:", error.message);
 		throw error;
 	}
 
@@ -51,21 +48,17 @@ async function checkTestUserExists(roleCode: string): Promise<string | null> {
 }
 
 async function deleteTestUser(userId: string): Promise<void> {
-	const { error } = await SUPA_CLIENT
-		.auth
-		.admin
-		.deleteUser(userId);
+	const { error } = await SUPA_CLIENT.auth.admin.deleteUser(userId);
 
 	if (error) {
-		console.error('Error deleting user:', error.message);
+		console.error("Error deleting user:", error.message);
 		throw error;
 	}
 }
 
 async function fetchDefaultHeadquarter(): Promise<string> {
-	const { data, error } = await SUPA_CLIENT
-		.from('headquarters')
-		.select('id')
+	const { data, error } = await SUPA_CLIENT.from("headquarters")
+		.select("id")
 		.limit(1)
 		.single();
 
@@ -74,11 +67,10 @@ async function fetchDefaultHeadquarter(): Promise<string> {
 }
 
 async function fetchDefaultSeason(hqId: string): Promise<string> {
-	const { data, error } = await SUPA_CLIENT
-		.from('seasons')
-		.select('id')
-		.eq('headquarter_id', hqId)
-		.order('start_date', { ascending: false })
+	const { data, error } = await SUPA_CLIENT.from("seasons")
+		.select("id")
+		.eq("headquarter_id", hqId)
+		.order("start_date", { ascending: false })
 		.limit(1)
 		.single();
 	if (error) throw error;
@@ -93,29 +85,23 @@ async function createTestUser(
 ): Promise<{ userId: string; email: string; password: string }> {
 	const email = `${TEST_USER_EMAIL_PREFIX}${role.code}@example.com`;
 
-	const { data, error } = await SUPA_CLIENT
-		.auth
-		.admin
-		.createUser({
-			email,
-			password: TEST_USER_PASSWORD,
-			email_confirm: true,
-			user_metadata: {
-				role: role.code,
-				role_level: role.level,
-				role_id: role.id,
-				hq_id: hqId,
-				season_id: seasonId,
-				agreement_id: agreementId,
-				comments: {}, // special comments for future use
-			},
-		});
+	const { data, error } = await SUPA_CLIENT.auth.admin.createUser({
+		email,
+		password: TEST_USER_PASSWORD,
+		email_confirm: true,
+		user_metadata: {
+			role: role.code,
+			role_level: role.level,
+			role_id: role.id,
+			hq_id: hqId,
+			season_id: seasonId,
+			agreement_id: agreementId,
+			comments: {}, // special comments for future use
+		},
+	});
 
 	if (error) {
-		console.error(
-			`Error creating user for role ${role.name}:`,
-			error.message,
-		);
+		console.error(`Error creating user for role ${role.name}:`, error.message);
 		throw error;
 	}
 
@@ -128,7 +114,7 @@ async function createTestUser(
 
 async function manageTestUsers() {
 	try {
-		console.log('Fetching active roles...');
+		console.log("Fetching active roles...");
 		const roles = await fetchActiveRoles();
 		const defaultHqId = await fetchDefaultHeadquarter();
 		const defaultSeasonId = await fetchDefaultSeason(defaultHqId);
@@ -142,19 +128,18 @@ async function manageTestUsers() {
 			const existingUserId = await checkTestUserExists(role.code);
 
 			if (existingUserId) {
-				console.log(
-					`Deleting existing test user for role ${role.name}...`,
-				);
+				console.log(`Deleting existing test user for role ${role.name}...`);
 				await deleteTestUser(existingUserId);
 			}
 
-			const { data: agData, error: agInsertErr } = await SUPA_CLIENT
-				.from('agreements')
+			const { data: agData, error: agInsertErr } = await SUPA_CLIENT.from(
+				"agreements",
+			)
 				.insert({
 					headquarter_id: defaultHqId,
 					season_id: defaultSeasonId,
 					role_id: role.id,
-					status: 'prospect',
+					status: "prospect",
 					email: `${TEST_USER_EMAIL_PREFIX}${role.code}@example.com`,
 					name: `${TEST_USER_EMAIL_PREFIX}${role.code}`,
 					last_name: `${TEST_USER_EMAIL_PREFIX}${role.code}`,
@@ -163,11 +148,11 @@ async function manageTestUsers() {
 					ethical_document_agreement: true,
 					mailing_agreement: true,
 					age_verification: true,
-					signature_data: 'abcdef',
+					signature_data: "abcdef",
 					document_number: 13456789,
 					phone: 123456789,
 				})
-				.select('id')
+				.select("id")
 				.single();
 			if (agInsertErr) throw agInsertErr;
 			const agreementId = agData.id;
@@ -180,14 +165,11 @@ async function manageTestUsers() {
 				agreementId,
 			);
 
-			console.log(
-				`Updating agreement ${agreementId} for user ${userId}...`,
-			);
+			console.log(`Updating agreement ${agreementId} for user ${userId}...`);
 
-			const { error: agUpdateErr } = await SUPA_CLIENT
-				.from('agreements')
-				.update({ user_id: userId, status: 'active' })
-				.eq('id', agreementId);
+			const { error: agUpdateErr } = await SUPA_CLIENT.from("agreements")
+				.update({ user_id: userId, status: "active" })
+				.eq("id", agreementId);
 
 			if (agUpdateErr) {
 				console.error(
@@ -197,29 +179,29 @@ async function manageTestUsers() {
 				throw agUpdateErr;
 			}
 
-			console.log('\n=== TEST USER CREDENTIALS ===');
+			console.log("\n=== TEST USER CREDENTIALS ===");
 			console.log(`Role: ${role.code}`);
 			console.log(`Email: ${email}`);
 			console.log(`Password: ${password}`);
-			console.log('============================\n');
+			console.log("============================\n");
 			credentials.push({
 				role: role.code,
 				email,
 				password,
-				jwt: 'not-needed',
+				jwt: "not-needed",
 			});
 		}
 
 		await writeCredentialsToJsonFile(credentials);
-		console.log('Test user management completed successfully!');
+		console.log("Test user management completed successfully!");
 	} catch (error) {
-		console.error('Error managing test users:', error);
+		console.error("Error managing test users:", error);
 	}
 }
 
 async function writeCredentialsToJsonFile(credentials: Credentials[]) {
 	const credentialsJson = JSON.stringify(credentials, null, 2);
-	const credentialsFilePath = './credentials.json';
+	const credentialsFilePath = "./credentials.json";
 	await Deno.writeTextFile(credentialsFilePath, credentialsJson);
 }
 

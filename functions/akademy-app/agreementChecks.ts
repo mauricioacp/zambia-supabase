@@ -1,4 +1,4 @@
-import { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
 /**
  * Splits an array into batches of the specified size
@@ -48,9 +48,9 @@ async function checkExistingAgreementsByEmail(
 
 		try {
 			const { data, error } = await supabaseClient
-				.from('agreements')
-				.select('email, document_number')
-				.in('email', batch);
+				.from("agreements")
+				.select("email, document_number")
+				.in("email", batch);
 
 			if (error) {
 				console.error(
@@ -85,10 +85,12 @@ async function checkExistingAgreementsByDocumentNumber(
 	existingAgreements: ExistingAgreement[],
 	batchSize: number = 50,
 ): Promise<ExistingAgreement[]> {
-	const remainingDocumentNumbers = documentNumbers.filter((doc) =>
-		!existingAgreements.some((existing) =>
-			existing.document_number.toLowerCase() === doc.toLowerCase()
-		)
+	const remainingDocumentNumbers = documentNumbers.filter(
+		(doc) =>
+			!existingAgreements.some(
+				(existing) =>
+					existing.document_number.toLowerCase() === doc.toLowerCase(),
+			),
 	);
 
 	if (remainingDocumentNumbers.length === 0) {
@@ -112,15 +114,13 @@ async function checkExistingAgreementsByDocumentNumber(
 
 		try {
 			const { data, error } = await supabaseClient
-				.from('agreements')
-				.select('email, document_number')
-				.in('document_number', batch);
+				.from("agreements")
+				.select("email, document_number")
+				.in("document_number", batch);
 
 			if (error) {
 				console.error(
-					`Error checking for existing document numbers in batch ${
-						i + 1
-					}:`,
+					`Error checking for existing document numbers in batch ${i + 1}:`,
 					error,
 				);
 				throw error;
@@ -130,11 +130,12 @@ async function checkExistingAgreementsByDocumentNumber(
 				// Filter out duplicates
 				data.forEach((docResult) => {
 					if (
-						!existingAgreements.some((existing) =>
-							existing.email.toLowerCase() ===
-								docResult.email.toLowerCase() &&
-							existing.document_number.toLowerCase() ===
-								docResult.document_number.toLowerCase()
+						!existingAgreements.some(
+							(existing) =>
+								existing.email.toLowerCase() ===
+									docResult.email.toLowerCase() &&
+								existing.document_number.toLowerCase() ===
+									docResult.document_number.toLowerCase(),
 						)
 					) {
 						newExistingAgreements.push(docResult);
@@ -142,10 +143,7 @@ async function checkExistingAgreementsByDocumentNumber(
 				});
 			}
 		} catch (error) {
-			console.error(
-				`Error processing document number batch ${i + 1}:`,
-				error,
-			);
+			console.error(`Error processing document number batch ${i + 1}:`, error);
 			throw error;
 		}
 	}
@@ -190,11 +188,11 @@ export async function checkExistingAgreementsInBatches(
 
 	existingAgreementsByDocNumber.forEach((docAgreement) => {
 		if (
-			!allExistingAgreements.some((existing) =>
-				existing.email.toLowerCase() ===
-					docAgreement.email.toLowerCase() &&
-				existing.document_number.toLowerCase() ===
-					docAgreement.document_number.toLowerCase()
+			!allExistingAgreements.some(
+				(existing) =>
+					existing.email.toLowerCase() === docAgreement.email.toLowerCase() &&
+					existing.document_number.toLowerCase() ===
+						docAgreement.document_number.toLowerCase(),
 			)
 		) {
 			allExistingAgreements.push(docAgreement);

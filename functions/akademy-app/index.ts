@@ -1,96 +1,103 @@
-import {Hono} from "jsr:@hono/hono@4";
-import {cors} from "jsr:@hono/hono@4/cors";
-import {HTTPException} from "jsr:@hono/hono@4/http-exception";
+import { Hono } from "jsr:@hono/hono@4";
+import { cors } from "jsr:@hono/hono@4/cors";
+import { HTTPException } from "jsr:@hono/hono@4/http-exception";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import {strapiMigrationRoute} from "./migration.ts";
-import {createUserFromAgreement} from "./create-user.ts";
-import {resetUserPassword} from "./reset-password.ts";
-import {deactivateUser} from "./deactivate-user.ts";
-import {changeUserRole} from "./change-role.ts";
-import {resendUserCredentials} from "./resend-credentials.ts";
-import {emailHandler} from "./email-handler.ts";
-import {
-    searchUsers,
-} from "./notifications.ts";
-import {requireMinRoleLevel} from "./middlewareAuth.ts";
+import { changeUserRole } from "./change-role.ts";
+import { createUserFromAgreement } from "./create-user.ts";
+import { deactivateUser } from "./deactivate-user.ts";
+import { emailHandler } from "./email-handler.ts";
+import { requireMinRoleLevel } from "./middlewareAuth.ts";
+import { strapiMigrationRoute } from "./migration.ts";
+import { searchUsers } from "./notifications.ts";
+import { resendUserCredentials } from "./resend-credentials.ts";
+import { resetUserPassword } from "./reset-password.ts";
 
 export const app = new Hono();
 
 const allowedOrigins = "*";
 
 app.use(
-    "*",
-    cors({
-        origin: allowedOrigins,
-        allowHeaders: [
-            "Content-Type",
-            "Authorization",
-            "x-client-info",
-            "apikey",
-            "X-Requested-With",
-        ],
-        allowMethods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
-        credentials: true,
-        exposeHeaders: ["Content-Length", "X-JSON"],
-        maxAge: 86400,
-    }),
+	"*",
+	cors({
+		origin: allowedOrigins,
+		allowHeaders: [
+			"Content-Type",
+			"Authorization",
+			"x-client-info",
+			"apikey",
+			"X-Requested-With",
+		],
+		allowMethods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+		credentials: true,
+		exposeHeaders: ["Content-Length", "X-JSON"],
+		maxAge: 86400,
+	}),
 );
 
 app.options("*", (c) => {
-    return c.text("", 204);
+	return c.text("", 204);
 });
 
 app.get("/akademy-app/health", (c) => {
-    return c.json({
-        status: "ok",
-        timestamp: new Date().toISOString(),
-        services: ["migration", "user-management"],
-    });
+	return c.json({
+		status: "ok",
+		timestamp: new Date().toISOString(),
+		services: ["migration", "user-management"],
+	});
 });
 
 app.onError((err, c) => {
-    if (err instanceof HTTPException) {
-        return c.json({
-            error: err.message,
-            status: err.status,
-        }, err.status);
-    }
+	if (err instanceof HTTPException) {
+		return c.json(
+			{
+				error: err.message,
+				status: err.status,
+			},
+			err.status,
+		);
+	}
 
-    console.error("Unhandled error:", err);
-    return c.json({
-        error: "Internal server error",
-        status: 500,
-    }, 500);
+	console.error("Unhandled error:", err);
+	return c.json(
+		{
+			error: "Internal server error",
+			status: 500,
+		},
+		500,
+	);
 });
 
 app.notFound((c) => {
-    return c.json({
-        error: "Not found",
-        status: 404,
-    }, 404);
+	return c.json(
+		{
+			error: "Not found",
+			status: 404,
+		},
+		404,
+	);
 });
 
 app.post("/akademy-app/migrate", requireMinRoleLevel(95), strapiMigrationRoute);
 app.post(
-    "/akademy-app/create-user",
-    requireMinRoleLevel(30),
-    createUserFromAgreement,
+	"/akademy-app/create-user",
+	requireMinRoleLevel(30),
+	createUserFromAgreement,
 );
 app.post(
-    "/akademy-app/reset-password",
-    requireMinRoleLevel(1),
-    resetUserPassword,
+	"/akademy-app/reset-password",
+	requireMinRoleLevel(1),
+	resetUserPassword,
 );
 app.post(
-    "/akademy-app/deactivate-user",
-    requireMinRoleLevel(50),
-    deactivateUser,
+	"/akademy-app/deactivate-user",
+	requireMinRoleLevel(50),
+	deactivateUser,
 );
 app.post("/akademy-app/change-role", requireMinRoleLevel(49), changeUserRole);
 app.post(
-    "/akademy-app/resend-credentials",
-    requireMinRoleLevel(30),
-    resendUserCredentials,
+	"/akademy-app/resend-credentials",
+	requireMinRoleLevel(30),
+	resendUserCredentials,
 );
 app.post("/akademy-app/email", requireMinRoleLevel(1), emailHandler);
 
